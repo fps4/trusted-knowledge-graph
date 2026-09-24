@@ -4,13 +4,16 @@ AS      ?= mara
 
 .DEFAULT_GOAL := help
 .PHONY: help init build up down reset load policy demo ask explain doctor cq test lint \
-        leak verify-audit reset-audit boundary up-stores ps logs
+        leak verify-audit reset-audit boundary up-stores mcp-configs ps logs
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
 
 init: ## .env, per-persona keys, audit salt, one MCP config per persona (never overwrites a key)
 	@./scripts/init.sh
+
+mcp-configs: ## MCP configs for Claude Code on this machine; for a remote host: make mcp-configs HOST=ds1
+	@./scripts/mcp-configs.sh $(HOST)
 
 build: init ## Build the images, including the per-persona MCP image
 	$(COMPOSE) --profile mcp --profile jobs build
