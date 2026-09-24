@@ -1,0 +1,59 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix ssf:  <https://lab.fps4.dev/firm/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+# Shapes are the load contract. A load that violates them does not land, and the
+# violation report is the error message. See lab-architecture.md §3.
+
+ssf:MatterShape a sh:NodeShape ;
+    sh:targetClass ssf:Matter ;
+    sh:property [ sh:path ssf:matterRef      ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path ssf:forClient      ; sh:minCount 1 ; sh:maxCount 1 ; sh:class ssf:Client ;
+                  sh:message "A matter has exactly one client. Two would be a conflict-check incident." ] ;
+    sh:property [ sh:path ssf:ledBy          ; sh:minCount 1 ; sh:class ssf:Person ] ;
+    sh:property [ sh:path ssf:matterType     ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:inJurisdiction ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:openedOn       ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path ssf:closedOn       ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+
+ssf:ClientShape a sh:NodeShape ;
+    sh:targetClass ssf:Client ;
+    sh:property [ sh:path ssf:clientRef  ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path rdfs:label     ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:clientType ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+ssf:PersonShape a sh:NodeShape ;
+    sh:targetClass ssf:Person ;
+    sh:property [ sh:path ssf:personRef  ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:familyName ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:grade      ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:joinedOn   ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+
+ssf:AssignmentShape a sh:NodeShape ;
+    sh:targetClass ssf:Assignment ;
+    sh:property [ sh:path ssf:assignmentMatter ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:assignmentPerson ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:validFrom        ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ;
+                  sh:message "An assignment without a start date cannot answer a question about time." ] .
+
+# The rule the whole design rests on, expressed as a shape rather than a sentence:
+# the graph holds assertions and identifiers, never document content. If a load
+# starts carrying prose, this fails and the load does not land.
+ssf:NoDocumentContentShape a sh:NodeShape ;
+    rdfs:label "No document content in the graph" ;
+    sh:targetClass ssf:Matter, ssf:Client, ssf:Person, ssf:Account, ssf:Contact,
+                   ssf:Assignment, ssf:Restriction ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Literal longer than 500 characters. The graph holds assertions and identifiers; document content stays in the document store." ;
+        sh:prefixes ssf: ;
+        sh:select """
+            SELECT $this ?value
+            WHERE {
+                $this ?p ?value .
+                FILTER (isLiteral(?value) && STRLEN(STR(?value)) > 500)
+            }
+        """ ;
+    ] .

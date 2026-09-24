@@ -1,0 +1,92 @@
+# The synthetic firm. Everything below is invented; no real firm, person, client
+# or matter is described here. The generator is deterministic: same seed, same
+# estate, same identifiers, every time.
+
+seed: 20260924            # TKG_SEED overrides
+
+offices: [Amsterdam, London, Frankfurt]
+
+jurisdictions:
+  - {id: NL, label: Netherlands}
+  - {id: GB, label: United Kingdom}
+  - {id: DE, label: Germany}
+  - {id: EU, label: European Union}
+
+practice_areas:
+  - {id: asset-management-funds,    label: "Asset Management & Investment Funds"}
+  - {id: financial-institutions,    label: "Financial Institutions"}
+  - {id: tmt,                       label: "Technology, Media & Telecoms"}
+  - {id: healthcare-life-sciences,  label: "Healthcare & Life Sciences"}
+  - {id: energy-infrastructure,     label: "Energy & Infrastructure"}
+
+matter_types:
+  - {id: regulatory-investigation, label: "Regulatory investigation", practice_bias: [asset-management-funds, financial-institutions]}
+  - {id: enforcement-action,       label: "Enforcement action",       practice_bias: [financial-institutions]}
+  - {id: fund-formation,           label: "Fund formation",           practice_bias: [asset-management-funds]}
+  - {id: corporate-transaction,    label: "Corporate transaction",    practice_bias: [tmt, energy-infrastructure]}
+  - {id: commercial-litigation,    label: "Commercial litigation",    practice_bias: [financial-institutions, tmt]}
+  - {id: regulatory-advisory,      label: "Regulatory advisory",      practice_bias: [healthcare-life-sciences, asset-management-funds]}
+
+client_types:
+  - {id: fund-manager,       label: "Fund manager"}
+  - {id: bank,               label: "Bank"}
+  - {id: insurer,            label: "Insurer"}
+  - {id: corporate,          label: "Corporate"}
+  - {id: healthcare-provider,label: "Healthcare provider"}
+  - {id: energy-company,     label: "Energy company"}
+
+volumes:
+  lawyers: 60
+  clients: 150
+  matters: 400
+  first_year: 2018
+  last_year: 2025
+  team_size: [2, 6]
+  open_matter_share: 0.18      # matters with no closed_on
+
+# The mess is generated, not hand-written, because a firm's mess is systemic.
+mess:
+  crm_name_drift: 0.22         # share of CRM accounts spelled differently from PMS
+  crm_missing_share: 0.10      # clients with no CRM account at all
+  shared_surname_pairs: 4      # lawyers who share a family name with a colleague
+
+name_pools:
+  given: [Mara, Sanne, Kim, Joost, Pieter, Anouk, Willem, Fenna, Bram, Lotte, Daan, Sofie,
+          Oliver, Charlotte, Harriet, Edward, Imogen, Rupert, Clara, Nadia, Yusuf, Aisha,
+          Lukas, Greta, Matthias, Johanna, Stefan, Birgit, Tomas, Elena, Rafael, Noor]
+  family: [de Vries, Bakker, Okonjo, Jansen, van Dijk, Visser, Smit, Meijer, de Boer,
+           Mulder, Whitfield, Carmichael, Ashworth, Pemberton, Fairhurst, Lindqvist,
+           Weber, Schneider, Brandt, Hoffmann, Adeyemi, Rahman, Novak, Costa]
+  client_stem: [Delta, Rhine, Meridian, Vantage, Northgate, Kestrel, Solstice, Harbour,
+                Arcadia, Lumen, Windward, Pinnacle, Ardent, Beacon, Cobalt, Drayton,
+                Everest, Foyle, Granite, Halcyon, Ivory, Juniper, Keystone, Larkspur]
+  client_form:
+    fund-manager:        ["Stichting {stem} Fondsen", "{stem} Capital Partners N.V.", "{stem} Asset Management B.V."]
+    bank:                ["{stem} Bank N.V.", "{stem} Financial Group plc"]
+    insurer:             ["{stem} Verzekeringen N.V.", "{stem} Insurance plc"]
+    corporate:           ["{stem} Holdings B.V.", "{stem} Group plc", "{stem} AG"]
+    healthcare-provider: ["{stem} Zorggroep", "{stem} Health GmbH"]
+    energy-company:      ["{stem} Energie N.V.", "{stem} Power plc"]
+
+# Fixed points the demo depends on. The generator writes these exactly and fills
+# the rest around them, so the demo script and the data cannot drift apart.
+pinned:
+  people:
+    - {person_ref: P-0101, given_name: Mara,  family_name: de Vries, office: Amsterdam, grade: partner,   practice_area: asset-management-funds,  joined_on: 2011-09-01}
+    - {person_ref: P-0102, given_name: Sanne, family_name: Okonjo,   office: London,    grade: associate, practice_area: financial-institutions,  joined_on: 2020-02-03}
+    - {person_ref: P-0103, given_name: Kim,   family_name: Bakker,   office: Amsterdam, grade: knowledge, practice_area: asset-management-funds,  joined_on: 2016-05-16}
+    # Shares a family name with P-0101 on purpose: matching on a label is wrong.
+    - {person_ref: P-0104, given_name: Joost, family_name: de Vries, office: Amsterdam, grade: associate, practice_area: financial-institutions,  joined_on: 2019-01-07}
+
+  clients:
+    - {client_ref: C-0042, name: "Stichting Delta Fondsen",   client_type: fund-manager, opened_on: 2017-03-02, crm_name: "Delta Fondsen Stichting"}
+    - {client_ref: C-0071, name: "Rhine Capital Partners N.V.", client_type: fund-manager, opened_on: 2019-11-12, crm_name: "Rhine Capital Partners"}
+
+  matters:
+    - {matter_ref: M-2021-0043, client_ref: C-0042, matter_type: regulatory-investigation, practice_area: asset-management-funds, jurisdiction: NL, office: Amsterdam, lead_person_ref: P-0101, opened_on: 2021-04-19, closed_on: 2022-02-28}
+    # Behind an information barrier from M1 onwards.
+    - {matter_ref: M-2022-0117, client_ref: C-0071, matter_type: regulatory-investigation, practice_area: asset-management-funds, jurisdiction: NL, office: Amsterdam, lead_person_ref: P-0101, opened_on: 2022-03-01, closed_on: 2023-06-30,
+       restrictions: [{rule_id: B-03, kind: barrier, set_on: 2022-03-14, set_by: Risk}]}
+    # Still open: no closed_on, and later no outcome fact. The answer must say so
+    # rather than infer one.
+    - {matter_ref: M-2024-0286, client_ref: C-0042, matter_type: regulatory-investigation, practice_area: asset-management-funds, jurisdiction: NL, office: Amsterdam, lead_person_ref: P-0101, opened_on: 2024-09-10, closed_on: null}

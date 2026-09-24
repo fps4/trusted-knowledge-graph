@@ -1,0 +1,33 @@
+@prefix rr:   <http://www.w3.org/ns/r2rml#> .
+@prefix ssf:  <https://lab.fps4.dev/firm/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# HR → g:spine/hr. Mapped, never extracted. Identifiers are kept exactly as the
+# source system holds them, so a fact refers to a thing rather than to a string.
+
+<#PersonMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT person_ref, given_name, family_name, office, grade,
+               practice_area, joined_on, left_on
+        FROM hr.person
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/person/{person_ref}" ;
+        rr:class ssf:Person ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/hr> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:personRef  ; rr:objectMap [ rr:column "person_ref" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:givenName  ; rr:objectMap [ rr:column "given_name" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:familyName ; rr:objectMap [ rr:column "family_name" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:grade      ; rr:objectMap [ rr:column "grade" ] ] ;
+    rr:predicateObjectMap [ rr:predicate rdfs:label     ;
+        rr:objectMap [ rr:template "{given_name} {family_name}" ; rr:termType rr:Literal ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:office ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/office/{office}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:practiceArea ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/glossary/practice-area/{practice_area}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:joinedOn ;
+        rr:objectMap [ rr:column "joined_on" ; rr:datatype xsd:date ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:leftOn ;
+        rr:objectMap [ rr:column "left_on" ; rr:datatype xsd:date ] ] .

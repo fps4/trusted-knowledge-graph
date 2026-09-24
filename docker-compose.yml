@@ -1,0 +1,66 @@
+name: tkg
+
+x-tkg-env: &tkg-env
+  TKG_FUSEKI_URL: ${TKG_FUSEKI_URL}
+  TKG_DB_DSN: postgresql://${TKG_DB_READER}:${TKG_DB_READER_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  TKG_DB_ADMIN_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  TKG_SEED: ${TKG_SEED}
+
+services:
+  # The systems of record. A source, never a target.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TKG_DB_READER: ${TKG_DB_READER}
+      TKG_DB_READER_PASSWORD: ${TKG_DB_READER_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    ports: ["127.0.0.1:${TKG_PORT_POSTGRES}:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # The knowledge layer. Facts and identifiers only — never document content.
+  fuseki:
+    build: ./docker/fuseki
+    environment:
+      JAVA_OPTIONS: ${JAVA_OPTIONS}
+    volumes:
+      - fuseki-data:/fuseki/databases
+    ports: ["127.0.0.1:${TKG_PORT_FUSEKI}:3030"]
+
+  resolver:
+    build: .
+    command: ["uvicorn", "tkg.resolver.api:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment: *tkg-env
+    ports: ["127.0.0.1:${TKG_PORT_RESOLVER}:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      fuseki:   {condition: service_healthy}
+
+  # One-shot entrypoints: seed, map, load, shapes, ask, demo.
+  # Not started by `up`; run with `docker compose run --rm jobs <command>`.
+  jobs:
+    build: .
+    profiles: ["jobs"]
+    environment: *tkg-env
+    volumes:
+      - ./reports:/app/reports
+      - ./data:/app/data
+      - ./mappings:/app/mappings:ro
+      - ./ontology:/app/ontology:ro
+      - ./config:/app/config:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      fuseki:   {condition: service_healthy}
+    entrypoint: ["tkg"]
+
+volumes:
+  postgres-data:
+  fuseki-data:

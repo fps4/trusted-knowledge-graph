@@ -1,0 +1,45 @@
+@prefix rr:   <http://www.w3.org/ns/r2rml#> .
+@prefix ssf:  <https://lab.fps4.dev/firm/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# CRM → g:spine/crm. Note what is NOT here: any link from an account to a
+# pms.client. The same organisation is spelled differently in the two systems and
+# joining them is a decision with a name on it, not a JOIN. Until identity
+# resolution lands, an account and a client are two nodes — which is honest, and
+# which is why a query can return the same organisation twice.
+
+<#AccountMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT account_ref, name, account_type, relationship_partner_ref, since
+        FROM crm.account
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/account/{account_ref}" ;
+        rr:class ssf:Account ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/crm> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:accountRef ; rr:objectMap [ rr:column "account_ref" ] ] ;
+    rr:predicateObjectMap [ rr:predicate rdfs:label     ; rr:objectMap [ rr:column "name" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:accountType ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/glossary/client-type/{account_type}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:relationshipPartner ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/person/{relationship_partner_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:accountSince ;
+        rr:objectMap [ rr:column "since" ; rr:datatype xsd:date ] ] .
+
+<#ContactMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT contact_ref, account_ref, full_name, job_title, since FROM crm.contact
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/contact/{contact_ref}" ;
+        rr:class ssf:Contact ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/crm> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate rdfs:label  ; rr:objectMap [ rr:column "full_name" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:jobTitle ; rr:objectMap [ rr:column "job_title" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:contactOf ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/account/{account_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:accountSince ;
+        rr:objectMap [ rr:column "since" ; rr:datatype xsd:date ] ] .

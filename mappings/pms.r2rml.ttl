@@ -1,0 +1,95 @@
+@prefix rr:   <http://www.w3.org/ns/r2rml#> .
+@prefix ssf:  <https://lab.fps4.dev/firm/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Practice management → g:spine/pms. This is the spine: matters, clients, who
+# led what, and when. Several competency questions become answerable here,
+# before a single document has been read.
+
+<#ClientMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT client_ref, name, client_type, opened_on FROM pms.client
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/client/{client_ref}" ;
+        rr:class ssf:Client ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/pms> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:clientRef ; rr:objectMap [ rr:column "client_ref" ] ] ;
+    rr:predicateObjectMap [ rr:predicate rdfs:label    ; rr:objectMap [ rr:column "name" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:clientType ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/glossary/client-type/{client_type}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:openedAsClientOn ;
+        rr:objectMap [ rr:column "opened_on" ; rr:datatype xsd:date ] ] .
+
+<#MatterMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT matter_ref, client_ref, matter_type, practice_area, jurisdiction,
+               office, lead_person_ref, opened_on, closed_on
+        FROM pms.matter
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/matter/{matter_ref}" ;
+        rr:class ssf:Matter ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/pms> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:matterRef ; rr:objectMap [ rr:column "matter_ref" ] ] ;
+    rr:predicateObjectMap [ rr:predicate rdfs:label    ; rr:objectMap [ rr:column "matter_ref" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:forClient ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/client/{client_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:ledBy ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/person/{lead_person_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:matterType ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/glossary/matter-type/{matter_type}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:practiceArea ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/glossary/practice-area/{practice_area}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:inJurisdiction ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/jurisdiction/{jurisdiction}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:office ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/office/{office}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:openedOn ;
+        rr:objectMap [ rr:column "opened_on" ; rr:datatype xsd:date ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:closedOn ;
+        rr:objectMap [ rr:column "closed_on" ; rr:datatype xsd:date ] ] .
+
+# Reified because it has a validity period. "Who worked on this, and when" is a
+# different question from "who is on it now", and a graph that only knows the
+# present cannot answer the first one.
+<#AssignmentMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT matter_ref, person_ref, role, from_date, to_date FROM pms.matter_team
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/assignment/{matter_ref}-{person_ref}-{from_date}" ;
+        rr:class ssf:Assignment ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/pms> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:assignmentMatter ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/matter/{matter_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:assignmentPerson ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/person/{person_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:assignmentRole ; rr:objectMap [ rr:column "role" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:validFrom ;
+        rr:objectMap [ rr:column "from_date" ; rr:datatype xsd:date ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:validTo ;
+        rr:objectMap [ rr:column "to_date" ; rr:datatype xsd:date ] ] .
+
+# Source data for the barrier rules M1 compiles. Mapped now so the schema and the
+# mapping do not move when enforcement arrives.
+<#RestrictionMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT matter_ref, rule_id, kind, set_on, set_by FROM pms.matter_restriction
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/restriction/{matter_ref}-{rule_id}" ;
+        rr:class ssf:Restriction ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/pms> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:restrictsMatter ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/matter/{matter_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:ruleId          ; rr:objectMap [ rr:column "rule_id" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:restrictionKind ; rr:objectMap [ rr:column "kind" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:setBy           ; rr:objectMap [ rr:column "set_by" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:setOn ;
+        rr:objectMap [ rr:column "set_on" ; rr:datatype xsd:date ] ] .

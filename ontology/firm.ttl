@@ -1,0 +1,74 @@
+@prefix ssf:  <https://lab.fps4.dev/firm/> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct:  <http://purl.org/dc/terms/> .
+
+<https://lab.fps4.dev/firm/> a owl:Ontology ;
+    rdfs:label "Firm ontology (lab)" ;
+    dct:description """A deliberately small OWL profile: classes, a few domains and
+ranges, and nothing that needs a reasoner to be useful. The vocabulary for areas of
+law and matter types is a SKOS scheme, not a class hierarchy, so that knowledge
+management can own it without a release. M2 maps that scheme onto SALI LMSS.""" ;
+    owl:versionInfo "0.1.0 — M0" .
+
+# ── Classes ──────────────────────────────────────────────────────────────────
+ssf:Matter       a owl:Class ; rdfs:label "Matter" .
+ssf:Client       a owl:Class ; rdfs:label "Client" ;
+    rdfs:comment "As the practice management system knows it. The CRM's view is an ssf:Account until something resolves them." .
+ssf:Account      a owl:Class ; rdfs:label "CRM account" .
+ssf:Contact      a owl:Class ; rdfs:label "Client contact" .
+ssf:Person       a owl:Class ; rdfs:label "Person" .
+ssf:Office       a owl:Class ; rdfs:label "Office" .
+ssf:Jurisdiction a owl:Class ; rdfs:label "Jurisdiction" .
+ssf:Assignment   a owl:Class ; rdfs:label "Matter assignment" ;
+    rdfs:comment "Who worked a matter, in what role, between which dates. Reified because it is a fact with a validity period, and time is what 'expertise applied over time' is a question about." .
+ssf:Restriction  a owl:Class ; rdfs:label "Matter restriction" ;
+    rdfs:comment "Recorded by the practice management system. It is the source a barrier rule is compiled from in M1, not the rule itself." .
+
+# ── Identifiers as they are in the source systems ────────────────────────────
+ssf:matterRef  a owl:DatatypeProperty ; rdfs:domain ssf:Matter  ; rdfs:range xsd:string .
+ssf:clientRef  a owl:DatatypeProperty ; rdfs:domain ssf:Client  ; rdfs:range xsd:string .
+ssf:personRef  a owl:DatatypeProperty ; rdfs:domain ssf:Person  ; rdfs:range xsd:string .
+ssf:accountRef a owl:DatatypeProperty ; rdfs:domain ssf:Account ; rdfs:range xsd:string .
+
+# ── Matter ───────────────────────────────────────────────────────────────────
+ssf:forClient      a owl:ObjectProperty ; rdfs:domain ssf:Matter ; rdfs:range ssf:Client .
+ssf:ledBy          a owl:ObjectProperty ; rdfs:domain ssf:Matter ; rdfs:range ssf:Person .
+ssf:inJurisdiction a owl:ObjectProperty ; rdfs:domain ssf:Matter ; rdfs:range ssf:Jurisdiction .
+ssf:matterType     a owl:ObjectProperty ; rdfs:domain ssf:Matter ; rdfs:range skos:Concept .
+ssf:practiceArea   a owl:ObjectProperty ; rdfs:range skos:Concept .
+ssf:office         a owl:ObjectProperty ; rdfs:range ssf:Office .
+ssf:openedOn       a owl:DatatypeProperty ; rdfs:domain ssf:Matter ; rdfs:range xsd:date .
+ssf:closedOn       a owl:DatatypeProperty ; rdfs:domain ssf:Matter ; rdfs:range xsd:date .
+
+# ── People and clients ───────────────────────────────────────────────────────
+ssf:givenName  a owl:DatatypeProperty ; rdfs:domain ssf:Person ; rdfs:range xsd:string .
+ssf:familyName a owl:DatatypeProperty ; rdfs:domain ssf:Person ; rdfs:range xsd:string .
+ssf:grade      a owl:DatatypeProperty ; rdfs:domain ssf:Person ; rdfs:range xsd:string .
+ssf:joinedOn   a owl:DatatypeProperty ; rdfs:domain ssf:Person ; rdfs:range xsd:date .
+ssf:leftOn     a owl:DatatypeProperty ; rdfs:domain ssf:Person ; rdfs:range xsd:date .
+ssf:clientType a owl:ObjectProperty   ; rdfs:domain ssf:Client ; rdfs:range skos:Concept .
+ssf:openedAsClientOn a owl:DatatypeProperty ; rdfs:domain ssf:Client ; rdfs:range xsd:date .
+
+# ── CRM ──────────────────────────────────────────────────────────────────────
+ssf:accountType          a owl:ObjectProperty ; rdfs:domain ssf:Account ; rdfs:range skos:Concept .
+ssf:relationshipPartner  a owl:ObjectProperty ; rdfs:domain ssf:Account ; rdfs:range ssf:Person .
+ssf:accountSince         a owl:DatatypeProperty ; rdfs:domain ssf:Account ; rdfs:range xsd:date .
+ssf:contactOf            a owl:ObjectProperty ; rdfs:domain ssf:Contact ; rdfs:range ssf:Account .
+ssf:jobTitle             a owl:DatatypeProperty ; rdfs:domain ssf:Contact ; rdfs:range xsd:string .
+
+# ── Assignment: the fact with a validity period ──────────────────────────────
+ssf:assignmentMatter a owl:ObjectProperty   ; rdfs:domain ssf:Assignment ; rdfs:range ssf:Matter .
+ssf:assignmentPerson a owl:ObjectProperty   ; rdfs:domain ssf:Assignment ; rdfs:range ssf:Person .
+ssf:assignmentRole   a owl:DatatypeProperty ; rdfs:domain ssf:Assignment ; rdfs:range xsd:string .
+ssf:validFrom        a owl:DatatypeProperty ; rdfs:range xsd:date .
+ssf:validTo          a owl:DatatypeProperty ; rdfs:range xsd:date .
+
+# ── Restriction (source data; the rule is compiled in M1) ────────────────────
+ssf:restrictsMatter  a owl:ObjectProperty   ; rdfs:domain ssf:Restriction ; rdfs:range ssf:Matter .
+ssf:ruleId           a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
+ssf:restrictionKind  a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
+ssf:setOn            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:date .
+ssf:setBy            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
