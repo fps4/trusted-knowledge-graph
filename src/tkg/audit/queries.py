@@ -26,7 +26,7 @@ DERIVED_FROM = (
 
 def _parts(record: dict) -> list[dict]:
     """An ask is one decision; a resolve_term carries one per reading it counted."""
-    if record.get("request") == "ask":
+    if record.get("request") in ("ask", "passages"):
         return [record]
     if record.get("request") == "resolve_term":
         return list(record.get("readings", []))
@@ -88,6 +88,8 @@ class AuditReader:
                     how.append("shown the matter")
                 if matter_ref in (returned.get("counted") or []):
                     how.append("counted in an aggregate")
+                if matter_ref in (returned.get("passage_matters") or []):
+                    how.append("shown passages from its documents")
                 for g in returned.get("graphs") or []:
                     if g in derived_short or g in derived:
                         how.append(f"by lineage: {iri.shorten(g)}")

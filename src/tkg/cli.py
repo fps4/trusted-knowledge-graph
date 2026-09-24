@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 import typer
+import yaml
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -113,61 +114,200 @@ def map_cmd() -> None:
 
 @app.command()
 def load(skip_seed: bool = typer.Option(False, "--skip-seed")) -> None:
-    """Seed, map, add told facts, validate against the shapes, and load. In that order."""
+    """Seed, map, add told and extracted facts, validate, load; then documents and index."""
+    from . import dms
+    from .ingest import docgraph, pipeline
+    from .ingest import extract as extract_mod
+
     cfg = _settings()
     config = _estate_config(cfg.config_dir)
+    est = estate_mod.build(config, cfg.seed)
+
+    def step(n: int, msg: str) -> None:
+        console.print(f"[green]{n}/9[/] {msg}")
 
     if not skip_seed:
-        est = estate_mod.build(config, cfg.seed)
         counts = seed_db(cfg.db_admin_dsn, est)
-        console.print("[green]1/6 seeded[/] " + " · ".join(f"{v} {k}" for k, v in counts.items()))
+        step(1, "seeded " + " · ".join(f"{v} {k}" for k, v in counts.items()))
 
     spine = cfg.data_dir / "generated" / "spine.nq"
     n = materialize(cfg.sqlalchemy_url, cfg.mappings_dir, spine)
-    console.print(f"[green]2/6 mapped[/] {n} quads from R2RML over the live database")
+    step(2, f"mapped {n} quads from R2RML over the live database")
 
     told = cfg.data_dir / "generated" / "asserted.nq"
     facts = asserted_mod.load(cfg.config_dir / "asserted.yaml")
     try:
         n = asserted_mod.write(asserted_mod.build(facts), told)
     except asserted_mod.LineageError as exc:
-        console.print(f"[red]3/6 told facts refused — nothing was loaded[/] {exc}")
+        console.print(f"[red]3/9 told facts refused — nothing was loaded[/] {exc}")
         raise typer.Exit(1) from exc
-    console.print(f"[green]3/6 told facts[/] {len(facts)} facts, {n} quads, each with its lineage")
+    step(3, f"told facts: {len(facts)} facts, {n} quads, each with its lineage")
+
+    try:
+        docs = pipeline.check_documents(est, config, cfg.seed, cfg.documents_path)
+    except pipeline.StaleFixture as exc:
+        console.print(f"[red]4/9 documents refused[/] {exc}")
+        raise typer.Exit(1) from exc
+    pdfs, texts = pipeline.render(docs, cfg.data_dir / "generated" / "pdf-text.jsonl")
+    extraction = extract_mod.read(cfg.extraction_path)
+    lookups = docgraph.Lookups.from_estate(est, config)
+    doc_ds, stats = docgraph.doc_facts(docs, extraction, texts, lookups)
+    extracted = cfg.data_dir / "generated" / "documents.nq"
+    lines = sorted(
+        line for ds in (docgraph.dms_metadata(docs), doc_ds)
+        for line in ds.serialize(format="nquads").splitlines() if line.strip()
+    )
+    extracted.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    step(4, f"documents: {len(docs)} rendered to PDF and read back · "
+         f"{len(extraction)} extracted · {stats.linked} facts linked, "
+         f"{sum(stats.unlinked.values())} left unlinked")
 
     terms, mapping = glossary_mod.load_config(cfg.config_dir)
     glossary_ttl = glossary_mod.build_turtle(terms, mapping)
     sali = cfg.vocab_dir / "sali-lmss-subset.ttl"
-    readings = sum(len(t.get("readings", [])) for t in terms["terms"])
-    console.print(
-        f"[green]4/6 glossary[/] {len(terms['terms'])} terms, {readings} readings, "
-        f"mapped to SALI LMSS @ {mapping['source']['commit'][:7]}"
-    )
+    step(5, f"glossary: {len(terms['terms'])} terms, mapped to SALI LMSS @ "
+         f"{mapping['source']['commit'][:7]}")
 
     taxonomy_ttl = taxonomies.build_turtle(config)
-    data = union_graph(
-        [spine, told], [taxonomy_ttl, glossary_ttl, sali, cfg.ontology_dir / "firm.ttl"]
-    )
+    quads = [spine, told, extracted]
+    data = union_graph(quads, [taxonomy_ttl, glossary_ttl, sali, cfg.ontology_dir / "firm.ttl"])
     result = validate(data, cfg.ontology_dir / "shapes.ttl", cfg.ontology_dir / "firm.ttl")
     if not result.conforms:
-        console.print("[red]5/6 shapes failed — nothing was loaded[/]")
+        console.print("[red]6/9 shapes failed — nothing was loaded[/]")
         console.print(Panel(result.report[:4000], title="SHACL report", border_style="red"))
         raise typer.Exit(1)
-    console.print(f"[green]5/6 shapes passed[/] {result.triples} triples validated")
+    step(6, f"shapes passed: {result.triples} triples validated")
 
     fuseki = Fuseki(cfg.fuseki_url)
-    push(fuseki, [spine, told], cfg.ontology_dir / "firm.ttl", taxonomy_ttl, glossary_ttl, sali)
+    push(fuseki, quads, cfg.ontology_dir / "firm.ttl", taxonomy_ttl, glossary_ttl, sali)
+    step(7, f"loaded {fuseki.count():,} triples")
+
+    store = dms.Store(cfg.minio_url, os.environ["MINIO_ROOT_USER"],
+                      os.environ["MINIO_ROOT_PASSWORD"])
+    step(8, f"document store: {pipeline.upload(store, docs, pdfs)} PDFs, keyed by matter")
+
+    chunks, _ = pipeline.index(cfg.index_url, docs, texts, cfg.data_dir / "generated")
+    step(9, f"index: {chunks} passages, BM25 and {384}-d embeddings, filterable by matter")
+
     table = Table(show_header=True, header_style="dim")
     table.add_column("named graph")
     table.add_column("triples", justify="right")
     graphs = fuseki.graphs()
-    told_graphs = [(g, c) for g, c in graphs if g.startswith(iri.G_ASSERTED)]
-    for graph, count in graphs:
-        if not graph.startswith(iri.G_ASSERTED):
-            table.add_row(iri.shorten(graph), f"{count:,}")
-    table.add_row(f"g:asserted/… ({len(told_graphs)} graphs)",
-                  f"{sum(c for _, c in told_graphs):,}")
-    console.print(f"[green]6/6 loaded[/] {fuseki.count():,} triples")
+    grouped: dict[str, list[int]] = {}
+    for g, count in graphs:
+        name = iri.shorten(g)
+        for prefix in ("g:asserted/", "g:doc/"):
+            if name.startswith(prefix):
+                name = prefix + "…"
+        grouped.setdefault(name, []).append(count)
+    for name, counts in grouped.items():
+        label = f"{name} ({len(counts)} graphs)" if name.endswith("…") else name
+        table.add_row(label, f"{sum(counts):,}")
+    console.print(table)
+
+
+@app.command()
+def documents() -> None:
+    """Regenerate data/fixtures/documents.jsonl from the estate. Deterministic."""
+    from .ingest import documents as documents_mod
+
+    cfg = _settings()
+    config = _estate_config(cfg.config_dir)
+    docs = documents_mod.build(estate_mod.build(config, cfg.seed), config, cfg.seed)
+    documents_mod.write(docs, cfg.documents_path)
+    by_type: dict[str, int] = {}
+    for d in docs:
+        by_type[d.doc_type] = by_type.get(d.doc_type, 0) + 1
+    console.print(f"[green]{len(docs)} documents[/] " +
+                  " · ".join(f"{v} {k}" for k, v in sorted(by_type.items())) +
+                  f" → {cfg.documents_path.relative_to(cfg.data_dir.parent)}")
+
+
+@app.command()
+def extract(
+    limit: int = typer.Option(0, help="only the first N documents (0 = all)"),
+    missing: bool = typer.Option(False, help="only documents not yet in the fixture"),
+) -> None:
+    """Run extraction through Claude (Batches API) and write the fixture. Needs a key."""
+    import json as _json
+
+    from . import dms
+    from .ingest import documents as documents_mod
+    from .ingest import extract as extract_mod
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        console.print("[red]ANTHROPIC_API_KEY is not set.[/] Extraction regenerates "
+                      "fixtures; the demo never needs it. Add it to .env on the host.")
+        raise typer.Exit(2)
+    cfg = _settings()
+    config = _estate_config(cfg.config_dir)
+    docs = documents_mod.read(cfg.documents_path)
+    have = extract_mod.read(cfg.extraction_path)
+    if missing:
+        docs = [d for d in docs if d.doc_id not in have]
+    if limit:
+        docs = docs[:limit]
+    if not docs:
+        console.print("nothing to extract")
+        return
+    items = [(d.doc_id, d.matter, dms.pdf_text(dms.render_pdf(d))) for d in docs]
+    tmp = cfg.data_dir / "generated" / "extraction-batch.jsonl"
+    usage = extract_mod.run_batch(items, config, tmp, lambda m: console.print(f"[dim]{m}[/]"))
+    merged = {**have, **extract_mod.read(tmp)}
+    cfg.extraction_path.write_text(
+        "\n".join(_json.dumps(merged[k], sort_keys=True, ensure_ascii=False)
+                  for k in sorted(merged)) + "\n", encoding="utf-8")
+    console.print(f"[green]extracted {len(items)}[/] · tokens in {usage['input']:,} "
+                  f"(cache reads {usage['cache_read']:,}) · out {usage['output']:,} · "
+                  f"refused {usage['refused']} · errored {usage['errored']}")
+
+
+@app.command("extraction-report")
+def extraction_report() -> None:
+    """reports/extraction.md — precision and recall against the generation manifest."""
+    from .eval import extraction as score_mod
+    from .ingest import docgraph, pipeline
+    from .ingest import documents as documents_mod
+    from .ingest import extract as extract_mod
+
+    cfg = _settings()
+    config = _estate_config(cfg.config_dir)
+    est = estate_mod.build(config, cfg.seed)
+    docs = documents_mod.read(cfg.documents_path)
+    extraction = extract_mod.read(cfg.extraction_path)
+    if not extraction:
+        console.print("[yellow]no extraction fixture yet — run make extract[/]")
+        raise typer.Exit(1)
+    _, texts = pipeline.render(docs, cfg.data_dir / "generated" / "pdf-text.jsonl")
+    result = score_mod.score(docs, extraction, texts, docgraph.Lookups.from_estate(est, config))
+    model = next(iter(extraction.values()))["model"]
+    refused = sum(1 for r in extraction.values() if r.get("status") == "refused")
+    errored = sum(1 for r in extraction.values() if r.get("status") not in ("ok", "refused"))
+    out = cfg.reports_dir / "extraction.md"
+    out.write_text(score_mod.render(result, model, len(docs), refused, errored), encoding="utf-8")
+    console.print("[green]→ reports/extraction.md[/]")
+
+
+@app.command()
+def naive(
+    text: str = typer.Argument(..., help="a question, as someone would type it"),
+    k: int = typer.Option(5),
+) -> None:
+    """The vector-only comparison: top-k over every passage, no access decision at all.
+
+    Not part of the system — the thing the system is measured against. It is how a
+    retrieval layer built by a service account over the whole corpus behaves.
+    """
+    from .index import Embedder, Index
+
+    cfg = _settings()
+    hits = Index(cfg.index_url).search(text, Embedder()([text])[0], None, k=k)
+    table = Table(show_header=True, header_style="dim")
+    for col in ("doc", "matter", "type", "score", "passage"):
+        table.add_column(col)
+    for h in hits:
+        table.add_row(h["doc_id"], h["matter_id"], h["doc_type"], str(h["score"]),
+                      h["text"][:160].replace("\n", " ") + "…")
     console.print(table)
 
 
@@ -188,6 +328,23 @@ def policy() -> None:
     out = cfg.build_dir / "opa" / "data.json"
     compiler.write(data, out)
     body = data["barriers"]
+
+    # The second enforcement point, compiled from the same data.
+    from . import dms
+
+    people = yaml.safe_load((cfg.config_dir / "people.yaml").read_text())["personas"]
+    policies = dms.compile_policies(data, people)
+    dms.write_policies(policies, cfg.build_dir / "minio")
+    secrets = {p["id"]: (cfg.secrets_dir / f"minio-{p['id']}.secret").read_text().strip()
+               for p in people}
+    try:
+        dms.apply_policies(cfg.minio_url, os.environ["MINIO_ROOT_USER"],
+                           os.environ["MINIO_ROOT_PASSWORD"], policies, secrets)
+        applied = "applied to the document store"
+    except Exception as exc:  # noqa: BLE001 - compile succeeds without a running store
+        applied = f"[yellow]not applied ({type(exc).__name__}) — is minio up?[/]"
+    console.print(f"[green]compiled[/] build/minio/<persona>.json · {len(policies)} "
+                  f"document-store users · {applied}")
     table = Table(show_header=True, header_style="dim")
     for col in ("rule", "matter", "kind", "insiders", "screened", "owner", "set on"):
         table.add_column(col)
@@ -299,6 +456,19 @@ def render(response: dict, show_rows: int = 25) -> None:
             Panel(_rules_table(explain_.get("rules", [])), title=title,
                   border_style=style, expand=False)
         )
+    for src in response.get("sources") or []:
+        console.print(f"[dim]source[/] {src['document']} → [link={src['url']}]{src['key']}[/link] "
+                      f"[dim](your credentials, until {src['expires']})[/]")
+    passages = response.get("passages") or []
+    if passages:
+        table = Table(show_header=True, header_style="dim", title="passages, pre-filtered")
+        for col in ("doc", "matter", "type", "passage"):
+            table.add_column(col)
+        for p in passages:
+            body = p["text"].split("\n\n", 1)[-1] if "\n\n" in p["text"] else p["text"]
+            table.add_row(p["doc_id"], p["matter_id"], p["doc_type"],
+                          " ".join(body.split())[:140] + "…")
+        console.print(table)
     if response.get("permit"):
         console.print(f"[dim]permit minted for passages(), expires {response['permit_expires']}[/]")
     console.print()

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import re
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from .. import __version__, iri
 from ..access import permit as permit_mod
@@ -34,6 +34,8 @@ from ..ingest.loader import Fuseki
 from ..semantic import glossary
 from ..semantic.router import route
 from ..semantic.templates import TEMPLATES, TERM_QUESTIONS, SlotError, Template
+
+URL_TTL = timedelta(minutes=5)
 
 PIPELINE_VERSION = f"tkg {__version__}"
 
@@ -68,7 +70,15 @@ class Resolver:
         hasher: Hasher,
         permit_key: bytes,
         personas: dict[str, dict],
+        stores=None,
+        index=None,
+        embed=None,
     ) -> None:
+        # stores(persona) -> a document-store client holding *that persona's*
+        # credentials; index/embed are None until the index exists (M3).
+        self.stores = stores
+        self.index = index
+        self.embed = embed
         self.fuseki = fuseki
         self.opa = opa
         self.writer = writer
@@ -165,7 +175,8 @@ class Resolver:
         record["terms"] = used
 
         # ── step 3 · route ─────────────────────────────────────────────────
-        chosen = route(template.needs if template else "facts", template_id, ambiguous)
+        chosen = route(template.needs if template else "facts", template_id, ambiguous,
+                       index_available=self._index_ready())
         record["route"] = chosen.public()
         if chosen.route == "refuse":
             outcome = "refused-ambiguous" if ambiguous else "refused-no-index"
@@ -263,12 +274,22 @@ class Resolver:
             permit_token, permit_exp = permit_mod.mint(
                 persona, trace, permitted_m, permitted_g, self.permit_key
             )
+        sources = self._sources(persona, cited, rows)
+        passages = []
+        if template.needs in ("passages", "both") and self._index_ready() and permitted_m:
+            passages = self._search(persona, template.passage_query or template.question,
+                                    permitted_m)
         returned = {
             "rows": len(rows),
             "matters": sorted({r["matterRef"] for r in rows if r.get("matterRef")}),
             "graphs": cited,
             "permit": {"exp": permit_exp} if permit_token else None,
+            # What was minted, never the signature: the object key and its expiry.
+            "links": [{"key": x["key"], "exp": x["expires"]} for x in sources],
         }
+        if passages:
+            returned["passages"] = [p["chunk_id"] for p in passages]
+            returned["passage_matters"] = sorted({p["matter_id"] for p in passages})
         if template.kind == "aggregate":
             # What the count was computed over — "shown" in the only sense an
             # aggregate shows anything. The subject-centred audit needs it.
@@ -284,6 +305,10 @@ class Resolver:
         }
         if scope:
             response["scope"] = scope
+        if sources:
+            response["sources"] = sources
+        if passages:
+            response["passages"] = passages
         if denied_any and withholding:
             response["explain"] = explain
         if permit_token:
@@ -354,6 +379,51 @@ class Resolver:
                 if readings else "Use `means` as slot values; pass the term id in `terms`."
             ),
         }
+
+    # ── the document store and the index ───────────────────────────────────
+    def _index_ready(self) -> bool:
+        return self.index is not None and self.index.exists()
+
+    def _object_keys(self, doc_ids: list[str]) -> dict[str, str]:
+        if not doc_ids:
+            return {}
+        values = " ".join(f"<{iri.document(d)}>" for d in doc_ids)
+        query = iri.PREFIXES + (
+            f"SELECT ?doc ?key WHERE {{ GRAPH <{iri.G_SPINE_DMS}> {{ VALUES ?doc {{ {values} }} "
+            "?doc ssf:objectKey ?key } }"
+        )
+        rows = self.fuseki.query(query)["results"]["bindings"]
+        return {r["doc"]["value"].rsplit("/", 1)[-1]: r["key"]["value"] for r in rows}
+
+    def _sources(self, persona: str, cited: list[str], rows: list[dict]) -> list[dict]:
+        """A link that opens the source — for documents the decision already permitted.
+
+        Minted with the asking persona's own document-store credentials, so the store
+        checks them again, on its own policy. There is no tool that turns an id into
+        bytes; the link rides on the citation. docs/decisions/0021.
+        """
+        if self.stores is None:
+            return []
+        docs = {g.rsplit("/", 1)[-1] for g in cited if g.startswith("g:doc/")}
+        docs |= {r["docId"] for r in rows if r.get("docId")}
+        keys = self._object_keys(sorted(docs))
+        if not keys:
+            return []
+        store = self.stores(persona)
+        expires = (datetime.now(UTC) + URL_TTL).isoformat(timespec="seconds")
+        return [
+            {"document": d, "key": k, "url": store.presign(k), "expires": expires}
+            for d, k in sorted(keys.items())
+        ]
+
+    def _search(self, persona: str, text: str, matters: list[str], k: int = 5) -> list[dict]:
+        """Passages, pre-filtered to the permitted matters — never filtered afterwards."""
+        hits = self.index.search(text, self.embed([text])[0], matters, k=k)
+        store = self.stores(persona) if self.stores else None
+        for h in hits:
+            if store is not None:
+                h["source_url"] = store.presign(f"doc/{h['matter_id']}/{h['doc_id']}.pdf")
+        return hits
 
     def _candidates(self, template: Template, slots: dict) -> tuple[list[str], list[str]]:
         query = template.candidates(slots)
@@ -494,19 +564,28 @@ class Resolver:
             self._write(record)
             return {"trace": record["trace"], "outcome": "refused-permit", "reason": str(exc)}
         # The text is not recorded: it is free text. docs/decisions/0013.
+        if not self._index_ready():
+            record.update(outcome="no-index", permit_trace=claims["trace"],
+                          returned={"passages": 0})
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "no-index",
+                    "permit_for": claims["trace"], "passages": [],
+                    "note": "The permit is valid; the index is not loaded."}
+        hits = self._search(persona, text or "", claims["matters"]) if claims["matters"] else []
         record.update(
-            outcome="no-index",
+            outcome="answered",
             permit_trace=claims["trace"],
-            returned={"passages": 0},
+            returned={"passages": [h["chunk_id"] for h in hits],
+                      "passage_matters": sorted({h["matter_id"] for h in hits}),
+                      "links": len(hits)},
         )
         self._write(record)
         return {
             "trace": record["trace"],
-            "outcome": "no-index",
+            "outcome": "answered",
             "permit_for": claims["trace"],
-            "passages": [],
-            "note": "The permit is valid. The index it guards arrives in M3; the lock "
-            "is fitted before the room exists.",
+            "filter": f"{len(claims['matters'])} permitted matters, applied inside the query",
+            "passages": hits,
         }
 
     # ── the record, read by Risk — and only by Risk ─────────────────────────
