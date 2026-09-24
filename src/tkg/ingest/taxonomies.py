@@ -20,6 +20,8 @@ SCHEMES = {
     "practice-area": ("practice_areas", "Practice areas"),
     "matter-type": ("matter_types", "Matter types"),
     "client-type": ("client_types", "Client types"),
+    "outcome": ("outcomes", "Matter outcomes"),
+    "expertise": ("expertise", "Areas of expertise"),
 }
 
 

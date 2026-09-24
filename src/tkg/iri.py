@@ -17,8 +17,13 @@ G_SPINE_PMS = GRAPH + "spine/pms"
 G_SPINE_CRM = GRAPH + "spine/crm"
 G_SPINE_HR = GRAPH + "spine/hr"
 G_ONTOLOGY = GRAPH + "ontology"
+# Statements about graphs, not inside them: lineage, attribution.
+G_PROV = GRAPH + "prov"
+# One graph per fact told by a person: g:asserted/<personRef>/<date>.
+G_ASSERTED = GRAPH + "asserted/"
 
 SPINE_GRAPHS = (G_SPINE_PMS, G_SPINE_CRM, G_SPINE_HR)
+VOCAB_GRAPHS = (G_ONTOLOGY,)
 
 PREFIXES = """PREFIX ssf:  <https://lab.fps4.dev/firm/>
 PREFIX id:   <https://lab.fps4.dev/id/>
@@ -27,6 +32,7 @@ PREFIX g:    <https://lab.fps4.dev/graph/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX prov: <http://www.w3.org/ns/prov#>
 """
 
 
@@ -48,6 +54,20 @@ def office(name: str) -> str:
 
 def jurisdiction(code: str) -> str:
     return f"{ID}jurisdiction/{code}"
+
+
+def fact(ref: str) -> str:
+    return f"{ID}fact/{ref}"
+
+
+def asserted_graph(person_ref: str, on: str) -> str:
+    return f"{G_ASSERTED}{person_ref}/{on}"
+
+
+def matter_ref(matter_iri: str) -> str | None:
+    """M-2022-0117 from its IRI, or None if it is not a matter."""
+    prefix = f"{ID}matter/"
+    return matter_iri[len(prefix) :] if matter_iri.startswith(prefix) else None
 
 
 def concept(scheme: str, ident: str) -> str:
