@@ -1,0 +1,14 @@
+{
+  "Statement": [
+    {
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Effect": "Deny",
+      "Resource": [
+        "arn:aws:s3:::dms/*"
+      ]
+    }
+  ],
+  "Version": "2012-10-17"
+}

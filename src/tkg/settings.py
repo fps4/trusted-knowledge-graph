@@ -22,11 +22,22 @@ class Settings:
     build_dir: Path
     audit_path: Path
     secrets_dir: Path
+    minio_url: str
+    minio_public_url: str
+    index_url: str
 
     @property
     def sqlalchemy_url(self) -> str:
         """morph-kgc reaches the systems of record through SQLAlchemy."""
         return self.db_dsn.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    @property
+    def documents_path(self) -> Path:
+        return self.data_dir / "fixtures" / "documents.jsonl"
+
+    @property
+    def extraction_path(self) -> Path:
+        return self.data_dir / "fixtures" / "extraction.jsonl"
 
 
 def load() -> Settings:
@@ -47,4 +58,10 @@ def load() -> Settings:
         build_dir=root / "build",
         audit_path=root / "audit" / "decisions.jsonl",
         secrets_dir=Path(os.environ.get("TKG_SECRETS_DIR", "/run/secrets/tkg")),
+        minio_url=os.environ.get("TKG_MINIO_URL", "http://minio:9000"),
+        # What a presigned URL is signed for: where the person opening it reaches
+        # the store. On a remote Docker host that is a tunnel to its loopback.
+        minio_public_url=os.environ.get("TKG_MINIO_PUBLIC_URL", "http://127.0.0.1:9100"),
+        index_url=os.environ.get("TKG_INDEX_URL", "http://opensearch:9200"),
     )
+

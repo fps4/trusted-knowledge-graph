@@ -7,6 +7,9 @@ x-tkg-env: &tkg-env
   TKG_DB_DSN: postgresql://${TKG_DB_READER}:${TKG_DB_READER_PASSWORD}@postgres:5432/${POSTGRES_DB}
   TKG_DB_ADMIN_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   TKG_SEED: ${TKG_SEED}
+  TKG_MINIO_URL: http://minio:9000
+  TKG_MINIO_PUBLIC_URL: http://127.0.0.1:${TKG_PORT_MINIO}
+  TKG_INDEX_URL: http://opensearch:9200
 
 # Two networks, so that "the MCP container cannot reach the stores" is a fact about
 # the wiring rather than a promise. The resolver is the only service on both.
@@ -48,6 +51,45 @@ services:
     ports: ["127.0.0.1:${TKG_PORT_FUSEKI}:3030"]
     networks: [internal]
 
+  # The document store: PDFs keyed by matter, with per-persona users and policies
+  # compiled from the same rules as OPA. Pinned by digest: MinIO stopped publishing
+  # release-tagged community images, and this is the last one (2025-09-07).
+  minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports: ["127.0.0.1:${TKG_PORT_MINIO}:9000"]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  # The index: passages and embeddings, queried with a filter inside the query.
+  # Single node, security plugin off — right for a loopback lab, a finding anywhere else.
+  opensearch:
+    image: opensearchproject/opensearch:2.19.2
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+      bootstrap.memory_lock: "false"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    ports: ["127.0.0.1:${TKG_PORT_OPENSEARCH}:9200"]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "localhost:9200/_cluster/health?wait_for_status=yellow&timeout=2s"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
   # The policy decision point. A hand-written policy over data compiled from
   # config/barriers.yaml; `make policy` recompiles and restarts it.
   opa:
@@ -88,6 +130,8 @@ services:
       postgres: {condition: service_healthy}
       fuseki:   {condition: service_healthy}
       opa:      {condition: service_started}
+      minio:    {condition: service_healthy}
+      opensearch: {condition: service_healthy}
 
   # One-shot entrypoints: seed, map, load, policy, ask, term, audit, demo, leak, reports.
   # Not started by `up`; run with `docker compose run --rm jobs <command>`.
@@ -96,7 +140,13 @@ services:
     build: .
     user: "${TKG_UID:-0}:${TKG_GID:-0}"
     profiles: ["jobs"]
-    environment: *tkg-env
+    environment:
+      <<: *tkg-env
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # Only the regeneration jobs (make extract, make eval-live) use a model.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5}
     volumes:
       - ./reports:/app/reports
       - ./data:/app/data
@@ -111,6 +161,8 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       fuseki:   {condition: service_healthy}
+      minio:    {condition: service_healthy}
+      opensearch: {condition: service_healthy}
     entrypoint: ["tkg"]
 
   # Not a service: the image Claude Code starts, one container per persona, over
@@ -126,3 +178,5 @@ services:
 volumes:
   postgres-data:
   fuseki-data:
+  minio-data:
+  opensearch-data:

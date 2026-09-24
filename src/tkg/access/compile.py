@@ -195,3 +195,33 @@ def compile_files(config_dir: Path, records: Records) -> dict:
 def write(data: dict, out: Path) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def denied_for(data: dict, principal: str) -> set[str] | None:
+    """The matters a principal may not see, from the compiled data — for the second
+    enforcement point, the document store. None means "everything": an unknown
+    principal, a service identity, or Risk, who reads the record and no content.
+
+    This mirrors policy/access.rego on purpose, and the gate checks the two agree
+    on every persona and every document: two enforcement points that disagree are
+    worse than one. docs/decisions/0021.
+    """
+    body = data["barriers"]
+    p = body["principals"].get(principal)
+    if p is None or p["kind"] == "service" or p.get("role") == "risk":
+        return None
+    denied = set()
+    for matter, rules in body["restrictions"].items():
+        for r in rules:
+            inside = p["person"] in r["insiders"]
+            s = r["screened"]
+            screened = (
+                p["person"] in s["people"]
+                or p["practice_area"] in s["practice_areas"]
+                or p["office"] in s["offices"]
+            )
+            if (r["kind"] == "need-to-know" and not inside) or (
+                r["kind"] == "barrier" and screened and not inside
+            ):
+                denied.add(matter)
+    return denied

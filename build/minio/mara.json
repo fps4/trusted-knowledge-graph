@@ -1,0 +1,24 @@
+{
+  "Statement": [
+    {
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::dms/doc/*"
+      ]
+    },
+    {
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Effect": "Deny",
+      "Resource": [
+        "arn:aws:s3:::dms/doc/M-2023-0018/*",
+        "arn:aws:s3:::dms/doc/M-2023-0033/*"
+      ]
+    }
+  ],
+  "Version": "2012-10-17"
+}
