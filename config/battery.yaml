@@ -1,0 +1,227 @@
+# The evaluation battery: thirty competency questions with known answers.
+#
+# Each question is asked two ways:
+#   graph   through the resolver, as the persona, bound to a template — the design
+#   vector  as plain words, answered by a model from the top-5 passages over the whole
+#           index, with no access decision — the ordinary way
+#
+# `truth` says how the right answer is computed — from the estate itself, in Python,
+# never from the graph being scored. The answer a *persona* should get removes what
+# they are walled from; where nothing is left, the right answer is a refusal.
+#
+#   kind: ordinary · barrier (the persona is walled from what the question turns on)
+#         · none (the truthful answer is that the firm has not done this)
+
+questions:
+  # ── ordinary ────────────────────────────────────────────────────────────────
+  - id: Q01
+    persona: mara
+    kind: ordinary
+    question: Have we advised a Dutch fund manager on an AFM investigation since 2021, who led it, and what was the outcome?
+    graph: {template: CQ-02, terms: [fund-manager, afm-investigation]}
+    truth: {type: matters, client_type: fund-manager, matter_type: regulatory-investigation, jurisdiction: NL, since: 2021-01-01}
+
+  - id: Q02
+    persona: mara
+    kind: ordinary
+    question: Which banks have we acted for on enforcement actions in the UK since 2019, and how did they end?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/bank, matter_type: gl:matter-type/enforcement-action, jurisdiction: id:jurisdiction/GB, since: 2019-01-01}}
+    truth: {type: matters, client_type: bank, matter_type: enforcement-action, jurisdiction: GB, since: 2019-01-01}
+
+  - id: Q03
+    persona: kim
+    kind: ordinary
+    question: Have we formed funds for fund managers in the Netherlands since 2018?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/fund-manager, matter_type: gl:matter-type/fund-formation, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: matters, client_type: fund-manager, matter_type: fund-formation, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q04
+    persona: sanne
+    kind: ordinary
+    question: Which insurers have we advised on UK regulatory matters since 2020, and who led them?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/insurer, matter_type: gl:matter-type/regulatory-advisory, jurisdiction: id:jurisdiction/GB, since: 2020-01-01}}
+    truth: {type: matters, client_type: insurer, matter_type: regulatory-advisory, jurisdiction: GB, since: 2020-01-01}
+
+  - id: Q05
+    persona: mara
+    kind: ordinary
+    question: Who led M-2021-0043, for which client, and what was the outcome?
+    graph: {template: CQ-06, slots: {matter: M-2021-0043}}
+    truth: {type: matter, matter: M-2021-0043}
+
+  - id: Q06
+    persona: kim
+    kind: ordinary
+    question: Who led M-2022-0022 and how did it end?
+    graph: {template: CQ-06, slots: {matter: M-2022-0022}}
+    truth: {type: matter, matter: M-2022-0022}
+
+  - id: Q07
+    persona: sanne
+    kind: ordinary
+    question: Who led M-2024-0286 and what was the outcome?
+    graph: {template: CQ-06, slots: {matter: M-2024-0286}}
+    truth: {type: matter, matter: M-2024-0286}
+
+  - id: Q08
+    persona: mara
+    kind: ordinary
+    question: Who led the M-2025-0034 matter, and has it concluded?
+    graph: {template: CQ-06, slots: {matter: M-2025-0034}}
+    truth: {type: matter, matter: M-2025-0034}
+
+  - id: Q09
+    persona: kim
+    kind: ordinary
+    question: Which matters have we run for Stichting Delta Fondsen, and who led them?
+    graph: {template: CQ-01, slots: {client: C-0042}}
+    truth: {type: client_matters, client: C-0042}
+
+  - id: Q10
+    persona: sanne
+    kind: ordinary
+    question: Which matters have we run for Larkspur Capital Partners?
+    graph: {template: CQ-01, slots: {client: C-1047}}
+    truth: {type: client_matters, client: C-1047}
+
+  - id: Q11
+    persona: mara
+    kind: ordinary
+    question: Who has worked on matters for Stichting Delta Fondsen?
+    graph: {template: CQ-03, slots: {client: C-0042}}
+    truth: {type: client_people, client: C-0042}
+
+  - id: Q12
+    persona: kim
+    kind: ordinary
+    question: Who has worked on matters for Larkspur Capital Partners?
+    graph: {template: CQ-03, slots: {client: C-1047}}
+    truth: {type: client_people, client: C-1047}
+
+  - id: Q13
+    persona: mara
+    kind: ordinary
+    question: What documents do we hold on M-2021-0043?
+    graph: {template: CQ-10, slots: {matter: M-2021-0043}}
+    truth: {type: documents, matter: M-2021-0043}
+
+  - id: Q14
+    persona: kim
+    kind: ordinary
+    question: What documents do we hold on M-2022-0022?
+    graph: {template: CQ-10, slots: {matter: M-2022-0022}}
+    truth: {type: documents, matter: M-2022-0022}
+
+  - id: Q15
+    persona: sanne
+    kind: ordinary
+    question: What documents do we hold on M-2024-0286?
+    graph: {template: CQ-10, slots: {matter: M-2024-0286}}
+    truth: {type: documents, matter: M-2024-0286}
+
+  - id: Q16
+    persona: mara
+    kind: ordinary
+    question: Who has led the most fund formations in the Netherlands since 2018?
+    graph: {template: CQ-07, slots: {matter_type: gl:matter-type/fund-formation, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: leads, matter_type: fund-formation, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q17
+    persona: sanne
+    kind: ordinary
+    question: Who has led the most commercial litigation in the UK since 2018?
+    graph: {template: CQ-07, slots: {matter_type: gl:matter-type/commercial-litigation, jurisdiction: id:jurisdiction/GB, since: 2018-01-01}}
+    truth: {type: leads, matter_type: commercial-litigation, jurisdiction: GB, since: 2018-01-01}
+
+  # ── behind a wall: the persona is screened from what the answer turns on ────
+  - id: Q18
+    persona: sanne
+    kind: barrier
+    question: Who led M-2022-0117, and what was the outcome?
+    graph: {template: CQ-06, slots: {matter: M-2022-0117}}
+    truth: {type: matter, matter: M-2022-0117}
+
+  - id: Q19
+    persona: sanne
+    kind: barrier
+    question: What was the outcome of the AFM investigation into Rhine Capital Partners, and who led it?
+    graph: {template: CQ-01, slots: {client: C-0071}}
+    truth: {type: client_matters, client: C-0071}
+
+  - id: Q20
+    persona: sanne
+    kind: barrier
+    question: Have we advised a Dutch fund manager on an AFM investigation since 2021, who led it, and what was the outcome?
+    graph: {template: CQ-02, terms: [fund-manager, afm-investigation]}
+    truth: {type: matters, client_type: fund-manager, matter_type: regulatory-investigation, jurisdiction: NL, since: 2021-01-01}
+
+  - id: Q21
+    persona: sanne
+    kind: barrier
+    question: Who has the most AFM investigation experience?
+    graph: {template: CQ-07}
+    truth: {type: leads, matter_type: regulatory-investigation, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q22
+    persona: kim
+    kind: barrier
+    question: Who led M-2023-0018, and how did it end?
+    graph: {template: CQ-06, slots: {matter: M-2023-0018}}
+    truth: {type: matter, matter: M-2023-0018}
+
+  - id: Q23
+    persona: mara
+    kind: barrier
+    question: Who led M-2023-0033, and what was the outcome?
+    graph: {template: CQ-06, slots: {matter: M-2023-0033}}
+    truth: {type: matter, matter: M-2023-0033}
+
+  - id: Q24
+    persona: kim
+    kind: barrier
+    question: What documents do we hold on M-2020-0032?
+    graph: {template: CQ-10, slots: {matter: M-2020-0032}}
+    truth: {type: documents, matter: M-2020-0032}
+
+  - id: Q25
+    persona: sanne
+    kind: barrier
+    question: What was the outcome of the regulatory investigation for the client on M-2020-0034?
+    graph: {template: CQ-06, slots: {matter: M-2020-0034}}
+    truth: {type: matter, matter: M-2020-0034}
+
+  # ── the firm has not done this: the true answer is none ─────────────────────
+  - id: Q26
+    persona: mara
+    kind: none
+    question: Have we formed a fund for a fund manager in Germany?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/fund-manager, matter_type: gl:matter-type/fund-formation, jurisdiction: id:jurisdiction/DE, since: 2018-01-01}}
+    truth: {type: matters, client_type: fund-manager, matter_type: fund-formation, jurisdiction: DE, since: 2018-01-01}
+
+  - id: Q27
+    persona: kim
+    kind: none
+    question: Have we acted for a bank in EU-level commercial litigation?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/bank, matter_type: gl:matter-type/commercial-litigation, jurisdiction: id:jurisdiction/EU, since: 2018-01-01}}
+    truth: {type: matters, client_type: bank, matter_type: commercial-litigation, jurisdiction: EU, since: 2018-01-01}
+
+  - id: Q28
+    persona: sanne
+    kind: none
+    question: Have we advised an insurer on an EU enforcement action?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/insurer, matter_type: gl:matter-type/enforcement-action, jurisdiction: id:jurisdiction/EU, since: 2018-01-01}}
+    truth: {type: matters, client_type: insurer, matter_type: enforcement-action, jurisdiction: EU, since: 2018-01-01}
+
+  - id: Q29
+    persona: mara
+    kind: none
+    question: Have we represented a healthcare provider in Dutch commercial litigation?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/healthcare-provider, matter_type: gl:matter-type/commercial-litigation, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: matters, client_type: healthcare-provider, matter_type: commercial-litigation, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q30
+    persona: kim
+    kind: none
+    question: Have we advised a healthcare provider on a Dutch enforcement action?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/healthcare-provider, matter_type: gl:matter-type/enforcement-action, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: matters, client_type: healthcare-provider, matter_type: enforcement-action, jurisdiction: NL, since: 2018-01-01}

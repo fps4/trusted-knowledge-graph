@@ -17,7 +17,7 @@ behind is. The estate is synthetic.
 | **leaked** | **0** |
 | wrong refusals (including over-refusals) | 0 |
 | doors behaving (permit, decision record) | 16 / 16 |
-| audit records checked for clear-text denied identifiers | 157 |
+| audit records checked for clear-text denied identifiers | 164 |
 | … found | 0 |
 | hash chain | intact |
 
@@ -86,7 +86,7 @@ Not a pass or fail — the number the design is measured against.
 
 | | |
 |---|---|
-| questions about a restricted matter, asked as someone walled from it | 8 |
+| questions about a restricted matter, asked by someone walled from it | 8 |
 | **returned passages from a walled matter** | **8** |
 | walled passages returned | 11 |
 

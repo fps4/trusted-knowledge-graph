@@ -11,6 +11,7 @@ resolver over HTTP with that persona's assertion, exactly as her MCP session doe
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -153,14 +154,21 @@ def load(skip_seed: bool = typer.Option(False, "--skip-seed")) -> None:
     lookups = docgraph.Lookups.from_estate(est, config)
     doc_ds, stats = docgraph.doc_facts(docs, extraction, texts, lookups)
     extracted = cfg.data_dir / "generated" / "documents.nq"
+    review_path = cfg.data_dir / "reviews" / "decisions.jsonl"
+    review_rows = [json.loads(x) for x in review_path.read_text().splitlines()
+                   if x.strip()] if review_path.exists() else []
+    existing = {str(g.identifier) for g in doc_ds.graphs()} | {
+        iri.asserted_graph(f["by"], str(f["told_on"])) for f in facts}
+    review_ds, skipped = docgraph.reviews(review_rows, existing)
     lines = sorted(
-        line for ds in (docgraph.dms_metadata(docs), doc_ds)
+        line for ds in (docgraph.dms_metadata(docs), doc_ds, review_ds)
         for line in ds.serialize(format="nquads").splitlines() if line.strip()
     )
     extracted.write_text("\n".join(lines) + "\n", encoding="utf-8")
     step(4, f"documents: {len(docs)} rendered to PDF and read back · "
          f"{len(extraction)} extracted · {stats.linked} facts linked, "
-         f"{sum(stats.unlinked.values())} left unlinked")
+         f"{sum(stats.unlinked.values())} left unlinked · {len(review_rows)} review "
+         f"decisions replayed{f', {skipped} skipped' if skipped else ''}")
 
     terms, mapping = glossary_mod.load_config(cfg.config_dir)
     glossary_ttl = glossary_mod.build_turtle(terms, mapping)
@@ -703,6 +711,106 @@ def audit_report() -> None:
     out = cfg.reports_dir / "audit.md"
     out.write_text(audit_md(subject, person, trace, reads), encoding="utf-8")
     console.print("[green]→ reports/audit.md[/]")
+
+
+review_app = typer.Typer(help="Confirm or reject facts — a decision with a name on it")
+app.add_typer(review_app, name="review")
+
+
+@review_app.command("list")
+def review_list(matter: str, as_: str = typer.Option("kim", "--as")) -> None:
+    """Facts on a matter that are extracted or unconfirmed, and await review."""
+    render(_client(as_).ask("CQ-11", {"matter": matter}))
+
+
+@review_app.command("confirm")
+def review_confirm(fact: str, as_: str = typer.Option("kim", "--as")) -> None:
+    """Confirm a fact. It becomes a review graph, derived from the fact's own."""
+    render({**_client(as_).review(fact, "confirmed"), "persona": as_, "template": "review"})
+
+
+@review_app.command("reject")
+def review_reject(fact: str, as_: str = typer.Option("kim", "--as")) -> None:
+    """Reject a fact. It stays in the graph for the record, and answers stop asserting it."""
+    render({**_client(as_).review(fact, "rejected"), "persona": as_, "template": "review"})
+
+
+@app.command("eval")
+def eval_cmd(
+    live: bool = typer.Option(False, help="compose and judge the vector path with Claude"),
+    write_baseline: bool = typer.Option(False, "--baseline", help="record this run as the bar"),
+) -> None:
+    """Thirty questions, both paths → reports/eval.md. The graph path needs no model."""
+    from .eval import battery
+
+    cfg = _settings()
+    if live and not os.environ.get("ANTHROPIC_API_KEY"):
+        console.print("[red]--live needs ANTHROPIC_API_KEY in .env[/]")
+        raise typer.Exit(2)
+    rows = battery.run(cfg, console, live=live)
+    (cfg.reports_dir / "eval.md").write_text(battery.render(rows), encoding="utf-8")
+    base = battery.baseline(rows)
+    if write_baseline:
+        (cfg.reports_dir / "baseline.json").write_text(json.dumps(base, indent=2) + "\n")
+    g, v = battery.summary(rows, "graph"), battery.summary(rows, "vector")
+    console.print(f"[bold]graph[/]  correct {g['correct']} · refused {g['refused']} · "
+                  f"wrong {g['confidently wrong']} · [bold]leaked {g['leaked']}[/]")
+    console.print(f"[bold]vector[/] correct {v['correct']} · refused {v['refused']} · "
+                  f"wrong {v['confidently wrong']} · [bold]leaked {v['leaked']}[/] · "
+                  f"not run {v['not run'] + v['stale']}")
+    console.print("[dim]→ reports/eval.md[/]")
+
+
+@app.command()
+def gate() -> None:
+    """The deploy gate with no CI behind it: every check, non-zero on any failure."""
+    from .access import compile as compiler
+    from .audit.chain import verify
+    from .eval import battery
+    from .eval import leak as leak_mod
+
+    cfg = _settings()
+    checks: list[tuple[str, bool, str]] = []
+
+    fresh = compiler.compile_files(cfg.config_dir, compiler.read_records(cfg.db_dsn))
+    committed = json.loads((cfg.build_dir / "opa" / "data.json").read_text())
+    checks.append(("compiled policy matches barriers.yaml and the systems of record",
+                   fresh == committed, "" if fresh == committed else "run make policy"))
+
+    result = leak_mod.run(cfg, console)
+    (cfg.reports_dir / "leak.md").write_text(leak_mod.render(result), encoding="utf-8")
+    checks.append(("barrier suite: zero leaks, zero wrong refusals, doors hold",
+                   not result.leaks and not result.problems
+                   and all(ok for *_, ok in result.doors), ""))
+    checks.append(("OPA and the document store agree on every persona and document",
+                   not result.store.disagreements,
+                   f"{len(result.store.disagreements)} disagreements"))
+    checks.append(("stolen document ids yield nothing",
+                   result.store.stolen_refused == result.store.stolen_attempts, ""))
+    checks.append(("no denied identifier in clear in the decision record",
+                   not result.audit_leaks, ""))
+
+    rows = battery.run(cfg, console)
+    (cfg.reports_dir / "eval.md").write_text(battery.render(rows), encoding="utf-8")
+    now = battery.baseline(rows)
+    base = battery.load_baseline(cfg.reports_dir / "baseline.json")
+    checks.append(("eval: the graph path leaks nothing", now["graph_leaked"] == 0, ""))
+    checks.append(("eval: graph-path correct at or above the baseline",
+                   base is not None and now["graph_correct"] >= base["graph_correct"],
+                   f"{now['graph_correct']} vs baseline "
+                   f"{base['graph_correct'] if base else '— none recorded'}"))
+
+    chain = verify(cfg.audit_path)
+    checks.append(("the decision record's hash chain is intact", chain.ok,
+                   f"{chain.records} records · head {chain.head[:16]}…"))
+
+    console.rule("[bold]make gate")
+    for name, ok, detail in checks:
+        mark = "[green]pass[/]" if ok else "[red]FAIL[/]"
+        console.print(f"{mark}  {name}  [dim]{detail}[/]")
+    console.print("[dim]not checked: OPA's own decision log as a second stream — cut, "
+                  "docs/decisions/0024[/]")
+    raise typer.Exit(0 if all(ok for _, ok, _ in checks) else 1)
 
 
 @app.command("verify-audit")
