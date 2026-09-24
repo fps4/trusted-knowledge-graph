@@ -4,9 +4,9 @@ A question arrives as a competency question and its slots, from a persona whose
 identity was verified before this code runs. The steps, in the architecture's
 order:
 
-1. Plan          — M1: the question arrives already as a template id; noted, not done.
-2. Resolve terms — M2: the glossary. Recorded as empty rather than faked.
-3. Route         — M1: every question is a template over the graph.
+1. Plan          — which competency question, and whether it turns on a glossary term.
+2. Resolve terms — against g:glossary: owners, readings, what an ambiguous term gets.
+3. Route         — graph · index · hybrid · refuse, with the reason. docs/decisions/0017.
 4. Bind          — slots validated against the estate.
 5. Decide        — candidates → lineage → OPA → permitted set. The only place a
                    decision is made. docs/decisions/0009.
@@ -21,6 +21,7 @@ salted hashes, in every field — docs/decisions/0013.
 
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import UTC, datetime
 
@@ -28,16 +29,19 @@ from .. import __version__, iri
 from ..access import permit as permit_mod
 from ..access.decide import Decision, Opa, PolicyUnavailable, lineage
 from ..audit.chain import Hasher, Writer, read
+from ..audit.queries import AuditReader
 from ..ingest.loader import Fuseki
-from ..semantic.templates import TEMPLATES, SlotError, Template
+from ..semantic import glossary
+from ..semantic.router import route
+from ..semantic.templates import TEMPLATES, TERM_QUESTIONS, SlotError, Template
 
 PIPELINE_VERSION = f"tkg {__version__}"
 
-ROUTE = {
-    "route": "graph",
-    "reason": "M1: every question is a competency-question template over the graph. "
-    "Routing between graph, index, hybrid and refuse arrives in M2.",
-}
+MATTER_REF = re.compile(r"^M-\d{4}-\d{4}$")
+
+
+def _listed() -> list[Template]:
+    return [t for t in TEMPLATES.values() if t.listed]
 
 
 def _now() -> str:
@@ -71,6 +75,7 @@ class Resolver:
         self.hasher = hasher
         self.permit_key = permit_key
         self.personas = personas
+        self.reader = AuditReader(writer.path, hasher, fuseki)
 
     # ── records ─────────────────────────────────────────────────────────────
     def _record(self, persona: str, request: str) -> dict:
@@ -94,11 +99,17 @@ class Resolver:
         return {"trace": record["trace"], "outcome": "refused-identity", "reason": reason}
 
     # ── ask ─────────────────────────────────────────────────────────────────
-    def ask(self, persona: str, template_id: str, params: dict[str, str] | None) -> dict:
+    def ask(
+        self,
+        persona: str,
+        template_id: str,
+        params: dict[str, str] | None,
+        terms: list[str] | None = None,
+    ) -> dict:
         record = self._record(persona, "ask")
-        record.update(template=template_id, route=ROUTE, terms=[])
+        record["template"] = template_id
         try:
-            response = self._ask(persona, template_id, params, record)
+            response = self._ask(persona, template_id, dict(params or {}), terms or [], record)
         except PolicyUnavailable as exc:
             record.update(outcome="refused-policy-unavailable", reason=str(exc)[:200])
             response = {
@@ -109,12 +120,64 @@ class Resolver:
         self._write(record)
         return {"trace": record["trace"], "persona": persona, **response}
 
-    def _ask(self, persona: str, template_id: str, params, record: dict) -> dict:
-        template: Template | None = TEMPLATES.get(template_id)
-        if template is None:
-            known = ", ".join(sorted(TEMPLATES))
+    def _ask(self, persona: str, template_id: str, params: dict, terms: list[str],
+             record: dict) -> dict:
+        # ── step 1 · plan: which question, and does it turn on a term ──────
+        question = TERM_QUESTIONS.get(template_id)
+        template: Template | None = None if question else TEMPLATES.get(template_id)
+        if question is None and template is None:
+            known = ", ".join(sorted(list(TERM_QUESTIONS) + [t.id for t in _listed()]))
             record.update(outcome="refused-invalid", reason="no such competency question")
             return {"outcome": "refused-invalid", "reason": f"no such question. Known: {known}"}
+
+        # ── step 2 · resolve terms against the glossary graph ──────────────
+        used = []
+        for term_id in terms:
+            term = glossary.by_id(self.fuseki, term_id)
+            if term is None:
+                record.update(outcome="refused-invalid", reason="unknown glossary term")
+                return {"outcome": "refused-invalid",
+                        "reason": f"{term_id!r} is not a term in the glossary"}
+            used.append({"term": term.id, "owner": term.owner})
+        ambiguous, term = None, None
+        if question:
+            term = glossary.by_id(self.fuseki, question.term)
+            key = params.pop("reading", None)
+            reading = next((r for r in term.readings if r.key == key), None)
+            if reading is None and key:
+                keys = ", ".join(r.key for r in term.readings)
+                record.update(outcome="refused-invalid", reason="no such reading")
+                return {"outcome": "refused-invalid",
+                        "reason": f"{term.label!r} has no reading {key!r}. Readings: {keys}"}
+            if reading is None and (term.on_ambiguous or "").startswith("default:"):
+                wanted = term.on_ambiguous.split(":", 1)[1]
+                reading = next(r for r in term.readings if r.key == wanted)
+            if reading is None:
+                ambiguous = (
+                    f"'{term.label}' has {len(term.readings)} readings with different owners, "
+                    f"and the question did not choose one (on_ambiguous: {term.on_ambiguous})"
+                )
+            else:
+                template = TEMPLATES[reading.template]
+                record["question_id"] = question.id
+            used.append({"term": term.id, "reading": reading.key if reading else None,
+                         "owner": reading.owner if reading else term.owner})
+        record["terms"] = used
+
+        # ── step 3 · route ─────────────────────────────────────────────────
+        chosen = route(template.needs if template else "facts", template_id, ambiguous)
+        record["route"] = chosen.public()
+        if chosen.route == "refuse":
+            outcome = "refused-ambiguous" if ambiguous else "refused-no-index"
+            record["outcome"] = outcome
+            response = {"template": template_id, "outcome": outcome, "route": chosen.public(),
+                        "reason": chosen.reason, "terms": used}
+            if ambiguous and term.on_ambiguous == "ask":
+                response["readings"] = [r.__dict__ for r in term.readings]
+                response["reason"] += ". Choose one: ask again with slots {'reading': <key>}."
+            return response
+
+        # ── step 4 · bind ─────────────────────────────────────────────────
         try:
             slots = template.check_slots(params)
         except SlotError as exc:
@@ -122,6 +185,16 @@ class Resolver:
             record.update(outcome="refused-invalid", reason="slot refused")
             return {"outcome": "refused-invalid", "reason": str(exc)}
 
+        response = self._answer(persona, record["trace"], template, slots, record)
+        response.update(route=chosen.public(), terms=used)
+        if question:
+            response["question_id"] = question.id
+        return response
+
+    def _answer(self, persona: str, trace: str, template: Template, slots: dict,
+                part: dict) -> dict:
+        """Steps 5 to 7 for one template. Writes what it decided into `part`."""
+        part["template"] = template.id
         # ── step 5 · decide ────────────────────────────────────────────────
         cand_matters, cand_graphs = self._candidates(template, slots)
         lineage_map = lineage(self.fuseki, cand_graphs)
@@ -131,7 +204,7 @@ class Resolver:
         permitted_m = [m for m in cand_matters if m not in denied_m]
         permitted_g = [g for g in cand_graphs if g not in denied_g]
 
-        record.update(
+        part.update(
             slots=self._redact_slots(slots, denied_m, denied_g),
             considered={
                 "matters": [self._id("matter", m, denied_m) for m in cand_matters],
@@ -154,7 +227,7 @@ class Resolver:
 
         # Who is asking decides before any matter does.
         if decision.principal:
-            record.update(outcome="refused", returned={"rows": 0})
+            part.update(outcome="refused", returned={"rows": 0})
             return {
                 **base,
                 "outcome": "refused",
@@ -163,7 +236,7 @@ class Resolver:
 
         denied_any = bool(denied_m or denied_g)
         if template.kind == "aggregate" and denied_any and withholding:
-            record.update(outcome="refused-aggregate", returned={"rows": 0})
+            part.update(outcome="refused-aggregate", returned={"rows": 0})
             return {
                 **base,
                 "outcome": "refused-aggregate",
@@ -172,10 +245,9 @@ class Resolver:
                 "explain": explain,
             }
 
+        # ── step 6 · passages: M3. The permit below will guard them. ───────
         # ── step 7 · compose, from the permitted set only ──────────────────
-        query = template.bind(
-            slots, [iri.matter(m) for m in permitted_m], permitted_g
-        )
+        query = template.bind(slots, [iri.matter(m) for m in permitted_m], permitted_g)
         rows, cited = self._run(template, query)
 
         if denied_any and withholding:
@@ -187,20 +259,21 @@ class Resolver:
             scope = "Computed over the matters you can see."
 
         permit_token, permit_exp = None, None
-        if rows:
+        if rows and template.kind == "rows":
             permit_token, permit_exp = permit_mod.mint(
-                persona, record["trace"], permitted_m, permitted_g, self.permit_key
+                persona, trace, permitted_m, permitted_g, self.permit_key
             )
-        shown_matters = sorted({r["matterRef"] for r in rows if r.get("matterRef")})
-        record.update(
-            outcome=outcome,
-            returned={
-                "rows": len(rows),
-                "matters": shown_matters,
-                "graphs": cited,
-                "permit": {"exp": permit_exp} if permit_token else None,
-            },
-        )
+        returned = {
+            "rows": len(rows),
+            "matters": sorted({r["matterRef"] for r in rows if r.get("matterRef")}),
+            "graphs": cited,
+            "permit": {"exp": permit_exp} if permit_token else None,
+        }
+        if template.kind == "aggregate":
+            # What the count was computed over — "shown" in the only sense an
+            # aggregate shows anything. The subject-centred audit needs it.
+            returned["counted"] = sorted(permitted_m)
+        part.update(outcome=outcome, returned=returned)
         response = {
             **base,
             "outcome": outcome,
@@ -219,6 +292,68 @@ class Resolver:
                 timespec="seconds"
             )
         return response
+
+    # ── resolve_term: what a word means here, and who says so ───────────────
+    def resolve_term(self, persona: str, text: str) -> dict:
+        record = self._record(persona, "resolve_term")
+        try:
+            terms = glossary.lookup(self.fuseki, text)
+            concepts = [] if terms else glossary.concepts(self.fuseki, text)
+        except glossary.TermError as exc:
+            # The text is not recorded: it is free text. docs/decisions/0013.
+            record.update(outcome="refused-invalid", reason="not a term")
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-invalid", "reason": str(exc)}
+        if not terms:
+            record.update(outcome="concept" if concepts else "unknown",
+                          matched=[c["concept"] for c in concepts])
+            self._write(record)
+            return {
+                "trace": record["trace"],
+                "outcome": "concept" if concepts else "unknown",
+                "concepts": concepts,
+                "note": "Not a business term. " + (
+                    "It is a concept in a vocabulary; use it as a slot value."
+                    if concepts else
+                    "Nothing in the glossary or the vocabularies has that name, and a "
+                    "question is not answered from a guess at what it means."
+                ),
+            }
+        term = terms[0]
+        record.update(term=term.id, readings=[])
+        readings = []
+        try:
+            for r in term.readings:
+                template = TEMPLATES[r.template]
+                part = {"reading": r.key, "owner": r.owner}
+                answer = self._answer(persona, record["trace"], template,
+                                      template.check_slots({}), part)
+                record["readings"].append(part)
+                readings.append({
+                    **r.__dict__,
+                    "count": answer["rows"][0]["n"] if answer.get("rows") else None,
+                    "outcome": answer["outcome"],
+                    **({"scope": answer["scope"]} if answer.get("scope") else {}),
+                    **({"explain": answer["explain"]} if answer.get("explain") else {}),
+                })
+        except PolicyUnavailable as exc:
+            record.update(outcome="refused-policy-unavailable", reason=str(exc)[:200])
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-policy-unavailable"}
+        record["outcome"] = "resolved"
+        self._write(record)
+        body = term.public()
+        body["readings"] = readings
+        return {
+            "trace": record["trace"],
+            "persona": persona,
+            "outcome": "resolved",
+            **body,
+            "note": (
+                "Each count is decided for you, like any other answer."
+                if readings else "Use `means` as slot values; pass the term id in `terms`."
+            ),
+        }
 
     def _candidates(self, template: Template, slots: dict) -> tuple[list[str], list[str]]:
         query = template.candidates(slots)
@@ -373,3 +508,61 @@ class Resolver:
             "note": "The permit is valid. The index it guards arrives in M3; the lock "
             "is fitted before the room exists.",
         }
+
+    # ── the record, read by Risk — and only by Risk ─────────────────────────
+    def _audit(self, persona: str, request: str, subject: dict, answer) -> dict:
+        record = self._record(persona, request)
+        record.update(subject)
+        try:
+            allowed, grounds = self.opa.may_read_record(self.personas[persona]["principal"])
+        except PolicyUnavailable as exc:
+            record.update(outcome="refused-policy-unavailable", reason=str(exc)[:200])
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-policy-unavailable"}
+        if not allowed:
+            record.update(outcome="refused", rules=[g["rule"] for g in grounds])
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused",
+                    "explain": {"rules": [_public(g) for g in grounds]}}
+        result = answer()
+        if result is None:
+            record["outcome"] = "not-found"
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "not-found"}
+        # Risk's reads go into the same chain, by the same writer. What Risk asked
+        # about is hashed like any other matter identifier: the reader is
+        # authorised, the record of the reading is not a directory of the walls.
+        record["outcome"] = "shown"
+        self._write(record)
+        return {"trace": record["trace"], "outcome": "shown", **result}
+
+    def audit_subject(self, persona: str, matter_ref: str) -> dict:
+        if not MATTER_REF.match(matter_ref or ""):
+            return {"outcome": "refused-invalid", "reason": "expected a matter like M-2022-0117"}
+        return self._audit(
+            persona, "audit.subject", {"subject": self.hasher("matter", matter_ref)},
+            lambda: self.reader.subject(matter_ref),
+        )
+
+    def audit_person(self, persona: str, person: str, since: str | None,
+                     until: str | None) -> dict:
+        if person not in self.personas:
+            return {"outcome": "refused-invalid", "reason": f"no persona {person!r}"}
+        try:
+            for value in (since, until):
+                if value:
+                    datetime.fromisoformat(value)
+        except ValueError:
+            return {"outcome": "refused-invalid", "reason": "since/until: ISO 8601 timestamps"}
+        return self._audit(
+            persona, "audit.person", {"about": person, "since": since, "until": until},
+            lambda: self.reader.person(person, since, until),
+        )
+
+    def audit_trace(self, persona: str, trace: str) -> dict:
+        if not re.match(r"^t-[0-9a-f]{8}$", trace or ""):
+            return {"outcome": "refused-invalid", "reason": "expected a trace like t-1a2b3c4d"}
+        return self._audit(
+            persona, "audit.trace", {"of_trace": trace},
+            lambda: (lambda r: None if r is None else {"record": r})(self.reader.trace(trace)),
+        )

@@ -84,3 +84,13 @@ decision := {
 	"matters": matters,
 	"graphs": graphs,
 }
+
+# ── reading the decision record is itself an access decision ────────────────
+# Risk may read it and nothing else may. The resolver writes Risk's own reads
+# into the same chain. docs/decisions/0018.
+reads_record if p.role == "risk"
+
+audit := {"allow": true, "grounds": []} if reads_record
+
+# Not a default: a default may not refer to data, and the grounds must.
+audit := {"allow": false, "grounds": [data.barriers.baseline["AU-01"]]} if not reads_record

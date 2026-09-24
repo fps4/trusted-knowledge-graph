@@ -19,7 +19,7 @@ from .. import identity, settings
 from ..access.decide import Opa
 from ..audit.chain import Hasher, Writer
 from ..ingest.loader import Fuseki
-from ..semantic.templates import TEMPLATES
+from ..semantic.templates import TEMPLATES, TERM_QUESTIONS
 from .engine import Resolver
 
 app = FastAPI(title="tkg resolver", version="0.2.0")
@@ -28,6 +28,25 @@ app = FastAPI(title="tkg resolver", version="0.2.0")
 class AskRequest(BaseModel):
     template_id: str
     slots: dict[str, str] = {}
+    terms: list[str] = []
+
+
+class TermRequest(BaseModel):
+    text: str
+
+
+class SubjectRequest(BaseModel):
+    matter: str
+
+
+class PersonRequest(BaseModel):
+    person: str
+    since: str | None = None
+    until: str | None = None
+
+
+class TraceRequest(BaseModel):
+    trace: str
 
 
 class ExplainRequest(BaseModel):
@@ -99,7 +118,7 @@ def whoami(persona: str = Depends(caller)) -> dict:
 
 @app.get("/templates")
 def templates(persona: str = Depends(caller)) -> list[dict]:
-    return [
+    listed = [
         {
             "id": t.id,
             "question": t.question,
@@ -111,13 +130,50 @@ def templates(persona: str = Depends(caller)) -> list[dict]:
             "note": t.note,
         }
         for t in TEMPLATES.values()
+        if t.listed
     ]
+    listed += [
+        {
+            "id": q.id,
+            "question": q.question,
+            "kind": "term",
+            "slots": [{"name": "reading", "kind": "reading", "default": None,
+                       "about": f"which reading of the glossary term {q.term!r}"}],
+            "note": "Call resolve_term first: the readings have different owners and counts.",
+        }
+        for q in TERM_QUESTIONS.values()
+    ]
+    return listed
 
 
 @app.post("/ask")
 def ask(body: AskRequest, persona: str = Depends(caller)) -> dict:
     resolver, _, _ = _state()
-    return resolver.ask(persona, body.template_id, body.slots)
+    return resolver.ask(persona, body.template_id, body.slots, body.terms)
+
+
+@app.post("/resolve_term")
+def resolve_term(body: TermRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.resolve_term(persona, body.text)
+
+
+@app.post("/audit/subject")
+def audit_subject(body: SubjectRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.audit_subject(persona, body.matter)
+
+
+@app.post("/audit/person")
+def audit_person(body: PersonRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.audit_person(persona, body.person, body.since, body.until)
+
+
+@app.post("/audit/trace")
+def audit_trace(body: TraceRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.audit_trace(persona, body.trace)
 
 
 @app.post("/explain")

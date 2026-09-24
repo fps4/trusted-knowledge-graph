@@ -34,6 +34,12 @@ baseline:
     rule: A derived graph that cannot say what it was derived from is shown to no one.
     owner: Head of Risk & Compliance
     set_on: 2026-09-25
+  - id: AU-01
+    rule: >-
+      Only Risk & Compliance reads the decision record — and its reads are written into
+      the same record.
+    owner: Head of Risk & Compliance
+    set_on: 2026-09-25
 
 # Rules about matters. Each one must match a row in pms.matter_restriction by
 # rule id, matter and kind.

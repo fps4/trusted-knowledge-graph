@@ -35,6 +35,12 @@ short identifiers: matters like M-2022-0117, clients like C-0042, people like
 P-0101, and vocabulary like gl:matter-type/regulatory-investigation or
 id:jurisdiction/NL. Defaults are used for slots you leave out.
 
+Business words are not yours to interpret. Before filling a slot from a word the
+user used — "AIFM", "AFM investigation", "active client" — call resolve_term() on it
+and use what it says the word means, then pass the term ids you relied on in
+ask(..., terms=[...]). If a term has several readings, do not pick one: show the
+readings, their owners and their counts, and ask the user which they mean.
+
 Report what comes back faithfully:
 - Every row cites the named graph it came from; keep the citation.
 - A fact whose review state is "unconfirmed" must be reported as unconfirmed.
@@ -71,15 +77,52 @@ def build(persona: str, key: bytes, resolver_url: str) -> MCPServer:
         return call("GET", "/templates")
 
     @server.tool()
-    def ask(question_id: str, slots: dict[str, str] | None = None) -> dict:
+    def ask(question_id: str, slots: dict[str, str] | None = None,
+            terms: list[str] | None = None) -> dict:
         """Ask one competency question, e.g. ask("CQ-06", {"matter": "M-2021-0043"}).
 
-        Returns rows with the named graph each came from, the outcome, and — when
-        anything was withheld — explain: the rule, its owner, the date it was set,
-        and how many facts were blocked directly or by lineage. An answered question
-        also carries a short-lived permit for passages().
+        `terms` lists the glossary term ids you used to fill the slots, so the answer
+        records which definitions it rests on. Returns rows with the named graph each
+        came from, the route and why, the outcome, and — when anything was withheld —
+        explain: the rule, its owner, the date it was set, and how many facts were
+        blocked directly or by lineage. An answered question also carries a
+        short-lived permit for passages().
         """
-        return call("POST", "/ask", {"template_id": question_id, "slots": slots or {}})
+        return call("POST", "/ask", {"template_id": question_id, "slots": slots or {},
+                                     "terms": terms or []})
+
+    @server.tool()
+    def resolve_term(text: str) -> dict:
+        """What a business word means in this firm, and who decides that.
+
+        Returns the glossary entry — definition, owner, the slot values it stands
+        for — or, for a word with several readings, every reading with its owner
+        and its count as you are allowed to see it. Call this before interpreting
+        any business term yourself.
+        """
+        return call("POST", "/resolve_term", {"text": text})
+
+    @server.tool()
+    def audit_subject(matter: str) -> dict:
+        """Risk & Compliance only: who has ever been shown anything derived from a matter.
+
+        Anyone else is refused, and the attempt is recorded.
+        """
+        return call("POST", "/audit/subject", {"matter": matter})
+
+    @server.tool()
+    def audit_person(person: str, since: str | None = None, until: str | None = None) -> dict:
+        """Risk & Compliance only: what one person was shown, between two ISO times.
+
+        `person` is who is being asked about, not who is asking — that is fixed.
+        """
+        return call("POST", "/audit/person", {"person": person, "since": since,
+                                               "until": until})
+
+    @server.tool()
+    def audit_trace(trace: str) -> dict:
+        """Risk & Compliance only: the full stored record of one decision, identifiers resolved."""
+        return call("POST", "/audit/trace", {"trace": trace})
 
     @server.tool()
     def explain(trace: str) -> dict:
