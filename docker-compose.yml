@@ -2,9 +2,20 @@ name: tkg
 
 x-tkg-env: &tkg-env
   TKG_FUSEKI_URL: ${TKG_FUSEKI_URL}
+  TKG_OPA_URL: http://opa:8181
+  TKG_RESOLVER_URL: http://resolver:8080
   TKG_DB_DSN: postgresql://${TKG_DB_READER}:${TKG_DB_READER_PASSWORD}@postgres:5432/${POSTGRES_DB}
   TKG_DB_ADMIN_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   TKG_SEED: ${TKG_SEED}
+
+# Two networks, so that "the MCP container cannot reach the stores" is a fact about
+# the wiring rather than a promise. The resolver is the only service on both.
+# See docs/decisions/0011.
+networks:
+  internal:
+    name: tkg_internal
+  edge:
+    name: tkg_edge
 
 services:
   # The systems of record. A source, never a target.
@@ -20,6 +31,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d:ro
     ports: ["127.0.0.1:${TKG_PORT_POSTGRES}:5432"]
+    networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 3s
@@ -34,18 +46,51 @@ services:
     volumes:
       - fuseki-data:/fuseki/databases
     ports: ["127.0.0.1:${TKG_PORT_FUSEKI}:3030"]
+    networks: [internal]
 
+  # The policy decision point. A hand-written policy over data compiled from
+  # config/barriers.yaml; `make policy` recompiles and restarts it.
+  opa:
+    image: openpolicyagent/opa:1.9.0-static
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --log-level=error
+      - /policy/access.rego
+      - /build/data.json
+    volumes:
+      - ./policy:/policy:ro
+      - ./build/opa:/build:ro
+    ports: ["127.0.0.1:${TKG_PORT_OPA}:8181"]
+    networks: [internal]
+
+  # The only service an agent can reach. One worker: it is also the only writer of
+  # the decision record. docs/decisions/0012.
   resolver:
     build: .
-    command: ["uvicorn", "tkg.resolver.api:app", "--host", "0.0.0.0", "--port", "8080"]
+    command: ["uvicorn", "tkg.resolver.api:app", "--host", "0.0.0.0", "--port", "8080",
+              "--workers", "1"]
     environment: *tkg-env
+    volumes:
+      - ./config:/app/config:ro
+      - ./secrets:/run/secrets/tkg:ro
+      - ./audit:/app/audit
     ports: ["127.0.0.1:${TKG_PORT_RESOLVER}:8080"]
+    networks: [internal, edge]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
     depends_on:
       postgres: {condition: service_healthy}
       fuseki:   {condition: service_healthy}
+      opa:      {condition: service_started}
 
-  # One-shot entrypoints: seed, map, load, shapes, ask, demo.
+  # One-shot entrypoints: seed, map, load, policy, ask, demo, leak, verify-audit.
   # Not started by `up`; run with `docker compose run --rm jobs <command>`.
+  # The operator's tool: it holds every persona's key and asks through the resolver.
   jobs:
     build: .
     profiles: ["jobs"]
@@ -53,13 +98,27 @@ services:
     volumes:
       - ./reports:/app/reports
       - ./data:/app/data
+      - ./build:/app/build
       - ./mappings:/app/mappings:ro
       - ./ontology:/app/ontology:ro
       - ./config:/app/config:ro
+      - ./secrets:/run/secrets/tkg:ro
+      - ./audit:/app/audit:ro
+    networks: [internal]
     depends_on:
       postgres: {condition: service_healthy}
       fuseki:   {condition: service_healthy}
     entrypoint: ["tkg"]
+
+  # Not a service: the image Claude Code starts, one container per persona, over
+  # stdio. Built here so `make build` builds it; never started by compose.
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/mcp/Dockerfile
+    image: tkg-mcp:latest
+    profiles: ["mcp"]
+    networks: [edge]
 
 volumes:
   postgres-data:
