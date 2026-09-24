@@ -9,7 +9,7 @@ from tkg.semantic.templates import TEMPLATES
 RELATIONS = yaml.safe_load(open("/app/config/relations.yaml"))["relations"]
 STRUCTURAL = {"matterRef", "factSubject", "factPredicate", "factObject", "reviewState",
               "confidence", "assertedBy", "accountType", "accountSince", "assignmentMatter",
-              "assignmentRole", "validFrom", "validTo", "docType", "documentDate"}
+              "assignmentRole", "validFrom", "validTo", "docType", "documentDate", "reviews"}
 
 
 def test_every_listed_template_uses_its_relation():

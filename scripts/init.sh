@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 grep -q '^TKG_PORT_MINIO=' .env || printf 'TKG_PORT_MINIO=9100\nTKG_PORT_OPENSEARCH=9200\nMINIO_ROOT_USER=tkg-root\n' >> .env
 grep -q '^MINIO_ROOT_PASSWORD=' .env || printf 'MINIO_ROOT_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
 grep -q '^TKG_UID=' .env || printf 'TKG_UID=%s\nTKG_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
-mkdir -p secrets audit build/opa mcp
+mkdir -p secrets audit build/opa mcp data/reviews
 chmod 700 secrets
 
 key() {

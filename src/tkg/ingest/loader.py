@@ -75,6 +75,9 @@ class Fuseki:
     def drop_all(self) -> None:
         self._post("/update", content="DROP ALL", content_type="application/sparql-update")
 
+    def update(self, sparql: str) -> None:
+        self._post("/update", content=sparql, content_type="application/sparql-update")
+
     def load_quads(self, path: Path) -> None:
         self._post("/data", content=path.read_bytes(), content_type="application/n-quads")
 

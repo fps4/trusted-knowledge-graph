@@ -54,6 +54,9 @@ class ResolverClient:
         return self._call("POST", "/audit/person", {"person": person, "since": since,
                                                      "until": until})
 
+    def review(self, fact: str, verdict: str) -> dict:
+        return self._call("POST", "/review", {"fact": fact, "verdict": verdict})
+
     def audit_trace(self, trace: str) -> dict:
         return self._call("POST", "/audit/trace", {"trace": trace})
 

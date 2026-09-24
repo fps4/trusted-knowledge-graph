@@ -119,6 +119,7 @@ services:
       - ./config:/app/config:ro
       - ./secrets:/run/secrets/tkg:ro
       - ./audit:/app/audit
+      - ./data/reviews:/app/data/reviews
     ports: ["127.0.0.1:${TKG_PORT_RESOLVER}:8080"]
     networks: [internal, edge]
     healthcheck:

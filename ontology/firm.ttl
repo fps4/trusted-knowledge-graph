@@ -144,3 +144,12 @@ ssf:extractedBy  a owl:DatatypeProperty ; rdfs:domain ssf:Fact ;
 ssf:charStart    a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:integer ;
     rdfs:comment "Where in the document text the evidence starts. An offset, never the passage: the passage belongs to the index." .
 ssf:charEnd      a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:integer .
+
+# ── Review (M4) ──────────────────────────────────────────────────────────────
+# A person confirms or rejects a fact. The review is its own small graph, derived
+# from the fact's graph, so whoever may not see the fact may not see its review.
+ssf:Review     a owl:Class ; rdfs:label "Review of a fact" .
+ssf:reviews    a owl:ObjectProperty   ; rdfs:domain ssf:Review ; rdfs:range ssf:Fact .
+ssf:verdict    a owl:DatatypeProperty ; rdfs:domain ssf:Review ; rdfs:range xsd:string .
+ssf:reviewedBy a owl:ObjectProperty   ; rdfs:domain ssf:Review ; rdfs:range ssf:Person .
+ssf:reviewedOn a owl:DatatypeProperty ; rdfs:domain ssf:Review ; rdfs:range xsd:date .

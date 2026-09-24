@@ -51,6 +51,11 @@ class TraceRequest(BaseModel):
     trace: str
 
 
+class ReviewRequest(BaseModel):
+    fact: str
+    verdict: str
+
+
 class ExplainRequest(BaseModel):
     trace: str
 
@@ -206,3 +211,10 @@ def explain(body: ExplainRequest, persona: str = Depends(caller)) -> dict:
 def passages(body: PassagesRequest, persona: str = Depends(caller)) -> dict:
     resolver, _, _ = _state()
     return resolver.passages(persona, body.permit, body.text)
+
+
+@app.post("/review")
+def review(body: ReviewRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    sink = settings.load().data_dir / "reviews" / "decisions.jsonl"
+    return resolver.review(persona, body.fact, body.verdict, sink)

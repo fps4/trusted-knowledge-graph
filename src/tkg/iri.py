@@ -77,6 +77,10 @@ def doc_graph(doc_id: str) -> str:
     return f"{G_DOC}{doc_id}"
 
 
+def review_graph(fact_id: str) -> str:
+    return f"{GRAPH}review/{fact_id}"
+
+
 def asserted_graph(person_ref: str, on: str) -> str:
     return f"{G_ASSERTED}{person_ref}/{on}"
 

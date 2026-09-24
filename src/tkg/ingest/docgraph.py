@@ -162,3 +162,30 @@ def doc_facts(docs: list[Document], extraction: dict[str, dict], texts: dict[str
         prov.add((graph_iri, PROV.wasDerivedFrom, URIRef(iri.matter(d.matter))))
         prov.add((graph_iri, PROV.wasAttributedTo, Literal(f"{row['model']} · {PIPELINE}")))
     return ds, stats
+
+
+def reviews(rows: list[dict], existing_graphs: set[str]) -> tuple[Dataset, int]:
+    """Replay review decisions — the durable record of who confirmed or rejected what —
+    into g:review/<factId>. A review whose fact no longer exists is skipped, not kept."""
+    ds = Dataset()
+    prov = ds.graph(URIRef(iri.G_PROV))
+    latest: dict[str, dict] = {}
+    for r in rows:
+        latest[r["fact"]] = r  # the last decision on a fact is the one that stands
+    skipped = 0
+    for fact_id, r in sorted(latest.items()):
+        if r["graph"] not in existing_graphs:
+            skipped += 1
+            continue
+        g_iri = URIRef(iri.review_graph(fact_id))
+        g = ds.graph(g_iri)
+        node = URIRef(f"{iri.ID}review/{fact_id}")
+        g.add((node, RDF.type, SSF.Review))
+        g.add((node, SSF.reviews, URIRef(iri.fact(fact_id))))
+        g.add((node, SSF.verdict, Literal(r["verdict"])))
+        g.add((node, SSF.reviewedBy, URIRef(iri.person(r["by"]))))
+        g.add((node, SSF.reviewedOn, Literal(r["on"], datatype=XSD.date)))
+        prov.add((g_iri, RDF.type, SSF.DerivedGraph))
+        prov.add((g_iri, PROV.wasDerivedFrom, URIRef(r["graph"])))
+        prov.add((g_iri, PROV.wasAttributedTo, URIRef(iri.person(r["by"]))))
+    return ds, skipped

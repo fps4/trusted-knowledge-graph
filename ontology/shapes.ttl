@@ -123,3 +123,11 @@ ssf:GlossaryTermShape a sh:NodeShape ;
                   sh:message "A glossary entry without a definition is a label, not a term." ] ;
     sh:property [ sh:path ssf:owner       ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:message "Every term and every reading has exactly one owner." ] .
+
+# A review is a decision with a name and a date on it.
+ssf:ReviewShape a sh:NodeShape ;
+    sh:targetClass ssf:Review ;
+    sh:property [ sh:path ssf:reviews    ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:verdict    ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "confirmed" "rejected" ) ] ;
+    sh:property [ sh:path ssf:reviewedBy ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:reviewedOn ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .

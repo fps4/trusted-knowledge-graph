@@ -21,9 +21,11 @@ salted hashes, in every field — docs/decisions/0013.
 
 from __future__ import annotations
 
+import json
 import re
 import secrets
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from .. import __version__, iri
 from ..access import permit as permit_mod
@@ -215,8 +217,11 @@ class Resolver:
         permitted_m = [m for m in cand_matters if m not in denied_m]
         permitted_g = [g for g in cand_graphs if g not in denied_g]
 
+        # A matter can be walled for this person without being a candidate — reached
+        # only through the lineage of a denied graph. Its identifier is hashed too.
+        walled = set(denied_m) | {m for g in denied_g for m in lineage_map.get(g, [])}
         part.update(
-            slots=self._redact_slots(slots, denied_m, denied_g),
+            slots=self._redact_slots(slots, sorted(walled), denied_g),
             considered={
                 "matters": [self._id("matter", m, denied_m) for m in cand_matters],
                 "graphs": [self._id("graph", g, denied_g) for g in cand_graphs],
@@ -645,3 +650,60 @@ class Resolver:
             persona, "audit.trace", {"of_trace": trace},
             lambda: (lambda r: None if r is None else {"record": r})(self.reader.trace(trace)),
         )
+
+    # ── review: a person confirms or rejects a fact ─────────────────────────
+    def review(self, persona: str, fact_id: str, verdict: str, sink: Path | None) -> dict:
+        record = self._record(persona, "review")
+        if verdict not in ("confirmed", "rejected") or not re.match(r"^[A-Z0-9-]+$", fact_id):
+            record.update(outcome="refused-invalid")
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-invalid",
+                    "reason": "review <factId> as confirmed or rejected"}
+        fact = iri.fact(fact_id)
+        found = self.fuseki.query(iri.PREFIXES + (
+            f"SELECT ?g WHERE {{ GRAPH ?g {{ <{fact}> a ssf:Fact }} }}"
+        ))["results"]["bindings"]
+        graph = found[0]["g"]["value"] if found else None
+        lineage_map = lineage(self.fuseki, [graph]) if graph else {}
+        try:
+            decision = self.opa.decide(self.personas[persona]["principal"], [], lineage_map)
+        except PolicyUnavailable as exc:
+            record.update(outcome="refused-policy-unavailable", reason=str(exc)[:200])
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-policy-unavailable"}
+        person_ref = self.personas[persona].get("person_ref")
+        allowed = graph is not None and decision.graphs.get(graph, {}).get("allow")
+        if not allowed or not person_ref:
+            # The same answer for "walled" and "no such fact". The record hashes it.
+            record.update(outcome="refused", of_fact=self.hasher("fact", fact_id),
+                          rules=sorted({g["rule"] for d in decision.graphs.values()
+                                        for g in d["grounds"]}) or None)
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused",
+                    "reason": "No fact you may review has that id."}
+        on = datetime.now(UTC).date().isoformat()
+        review_graph = iri.review_graph(fact_id)
+        node = f"{iri.ID}review/{fact_id}"
+        update = iri.PREFIXES + f"""
+DROP SILENT GRAPH <{review_graph}> ;
+INSERT DATA {{
+  GRAPH <{review_graph}> {{
+    <{node}> a ssf:Review ; ssf:reviews <{fact}> ; ssf:verdict "{verdict}" ;
+             ssf:reviewedBy <{iri.person(person_ref)}> ; ssf:reviewedOn "{on}"^^xsd:date .
+  }}
+  GRAPH <{iri.G_PROV}> {{
+    <{review_graph}> a ssf:DerivedGraph ; prov:wasDerivedFrom <{graph}> ;
+                     prov:wasAttributedTo <{iri.person(person_ref)}> .
+  }}
+}}"""
+        self.fuseki.update(update)
+        if sink is not None:
+            sink.parent.mkdir(parents=True, exist_ok=True)
+            with sink.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({"fact": fact_id, "graph": graph, "verdict": verdict,
+                                         "by": person_ref, "on": on,
+                                         "trace": record["trace"]}) + "\n")
+        record.update(outcome=verdict, of_fact=fact_id, returned={"graphs": [review_graph]})
+        self._write(record)
+        return {"trace": record["trace"], "outcome": verdict, "fact": fact_id,
+                "review_graph": iri.shorten(review_graph), "by": person_ref, "on": on}
