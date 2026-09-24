@@ -1,0 +1,91 @@
+# The business glossary. Not documentation: it is what stops a question — or a
+# language model — from silently choosing a definition. Compiled to SKOS in
+# g:glossary at load, and resolved at step 2 of every question that uses a term.
+# See docs/decisions/0015.
+#
+#   owner         who decides what this means — never an engineer
+#   means         slot values this term fills in, so "AIFM" becomes a client type
+#                 rather than a guess
+#   readings      one per owner, where owners disagree, each served by a template
+#   on_ambiguous  what a question that names the term but no reading gets:
+#                   ask               refused, with the readings listed back
+#                   refuse            refused, without them
+#                   default:<reading> that reading, and the answer says so
+#
+# Everything is invented, including the owners' definitions. They are shaped like
+# a firm's, not taken from one.
+
+terms:
+  - id: active-client
+    label: active client
+    alt: [current client, live client, actieve cliënt, active clients]
+    definition: >-
+      Depends on who is asking. Four defensible readings, four owners, four numbers.
+    owner: Knowledge Management
+    on_ambiguous: ask
+    question: CQ-09
+    readings:
+      - id: practice
+        label: active client — practice groups
+        definition: A client with at least one matter open on the as-of date.
+        owner: Practice Group Leaders
+        template: CQ-09-practice
+      - id: finance
+        label: active client — Finance
+        definition: A client invoiced in the twelve months to the as-of date.
+        owner: Finance
+        template: CQ-09-finance
+      - id: bd
+        label: active client — Business Development
+        definition: >-
+          An organisation the CRM lists with a named relationship partner. Counts CRM
+          accounts, which nothing has yet reconciled with practice-management clients.
+        owner: Business Development
+        template: CQ-09-bd
+      - id: risk
+        label: active client — Risk & Compliance
+        definition: >-
+          Any organisation the firm has ever acted for. Former clients count, because a
+          conflict check needs them. Related entities belong here too and are not
+          modelled in the lab.
+        owner: Risk & Compliance
+        template: CQ-09-risk
+
+  - id: fund-manager
+    label: fund manager
+    alt: [asset manager, AIFM, investment manager, fondsbeheerder, beheerder]
+    definition: A client whose business is managing investment funds for others.
+    owner: Knowledge Management
+    means: {client_type: gl:client-type/fund-manager}
+
+  - id: afm-investigation
+    label: AFM investigation
+    alt: [AFM onderzoek, Dutch regulatory investigation, AFM inquiry]
+    definition: >-
+      A regulatory investigation in the Netherlands. The lab does not record which
+      regulator ran it; the jurisdiction is the proxy, and the answer should say so.
+    owner: Knowledge Management
+    means:
+      matter_type: gl:matter-type/regulatory-investigation
+      jurisdiction: id:jurisdiction/NL
+
+  - id: regulatory-investigation
+    label: regulatory investigation
+    alt: [regulator investigation, investigation, onderzoek]
+    definition: A matter in which a regulator is examining the client's conduct.
+    owner: Knowledge Management
+    means: {matter_type: gl:matter-type/regulatory-investigation}
+
+  - id: outcome
+    label: outcome
+    alt: [result, resolution, uitkomst]
+    definition: >-
+      How a matter ended. Recorded nowhere structured; known because a partner told
+      us, and marked unconfirmed until someone confirms it.
+    owner: Knowledge Management
+
+  - id: matter
+    label: matter
+    alt: [case, file, dossier, zaak]
+    definition: A piece of work for a client, opened in the practice-management system.
+    owner: Practice Support

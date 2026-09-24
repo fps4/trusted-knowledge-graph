@@ -16,6 +16,7 @@ class Settings:
     config_dir: Path
     ontology_dir: Path
     mappings_dir: Path
+    vocab_dir: Path
     data_dir: Path
     reports_dir: Path
     build_dir: Path
@@ -40,6 +41,7 @@ def load() -> Settings:
         config_dir=root / "config",
         ontology_dir=root / "ontology",
         mappings_dir=root / "mappings",
+        vocab_dir=root / "vocab",
         data_dir=root / "data",
         reports_dir=root / "reports",
         build_dir=root / "build",

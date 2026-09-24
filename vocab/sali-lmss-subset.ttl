@@ -1,0 +1,84 @@
+# SALI LMSS — the subset this firm maps to. Generated; do not edit.
+# source   https://raw.githubusercontent.com/sali-legal/LMSS/3f9ac0c9357b2a971582ae79ede243511d47811d/LMSS.owl
+# commit   3f9ac0c9357b2a971582ae79ede243511d47811d (2026-03-10)
+# sha256   51acefd5051aa8f52e60d6dd142b0925c7cec3a5d789bfbe4fcbe69021c9bba1
+# licence  MIT — see docs/sources.md
+# regenerate with: python3 scripts/sali-subset.py
+
+@prefix lmss: <http://lmss.sali.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+
+<http://lmss.sali.org/R323NrrdMAKWvV45HB4CII> a owl:Class, skos:Concept ;
+    rdfs:label "Regulatory Enforcement" ; skos:prefLabel "Regulatory Enforcement" ;
+    skos:definition "The process of enforcement by a regulatory agency through an administrative procedure outside of any court system." ;
+    rdfs:subClassOf <http://lmss.sali.org/RBWo88jsbY4qHzhlTFr5Np7> .
+
+<http://lmss.sali.org/R79LjWBKHCdmQKEW6zPY8Co> a owl:Class, skos:Concept ;
+    rdfs:label "Litigation Practice" ; skos:prefLabel "Litigation Practice" ;
+    skos:definition "Matters that include official proceedings (e.g., court case, arbitration, mediation)" ;
+    rdfs:subClassOf <http://lmss.sali.org/RDigDgTiLFmt7iX3436yCOT> .
+
+<http://lmss.sali.org/R7meQhKYGkcA57UZ7v4JOdA> a owl:Class, skos:Concept ;
+    rdfs:label "Banking Law" ; skos:prefLabel "Banking Law" ;
+    skos:definition "Law that governs how banks and other financial institutions conduct business." ;
+    rdfs:subClassOf <http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> .
+
+<http://lmss.sali.org/R9Q4kB7yGIbUD9aMTcdvOG6> a owl:Class, skos:Concept ;
+    rdfs:label "Fund Formation Practice" ; skos:prefLabel "Fund Formation Practice" ;
+    skos:definition "Fund Formation (Service) refers to the legal work performed by a Legal Services Provider in the process of creating a new investment fund, including the drafting of necessary documents and compliance with regulatory requirements." ;
+    rdfs:subClassOf <http://lmss.sali.org/R7K2qUhID6JtseZQoE6bEEf> , <http://lmss.sali.org/RvpVqC4Gt7SDHOy4JCOKCy> .
+
+<http://lmss.sali.org/R9pmjLDKAMzm147xIPPq5ul> a owl:Class, skos:Concept ;
+    rdfs:label "Energy Law" ; skos:prefLabel "Energy Law" ;
+    skos:definition "Law concerned with creating, enforcing and challenging laws that regulate energy use." ;
+    rdfs:subClassOf <http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> .
+
+<http://lmss.sali.org/RBGwrXLh0uuXtUN70lvWZao> a owl:Class, skos:Concept ;
+    rdfs:label "Investment Companies Law" ; skos:prefLabel "Investment Companies Law" ;
+    skos:definition "Regulations on companies that engage primarily in investing, reinvesting, and trading in securities, and whose own securities are offered to the investing public." ;
+    rdfs:subClassOf <http://lmss.sali.org/RCF0BMeSwppddfM6cp6AUBK> .
+
+<http://lmss.sali.org/RBosma6qE0p7REgIqlUxvIR> a owl:Class, skos:Concept ;
+    rdfs:label "Mergers and Acquisitions Practice" ; skos:prefLabel "Mergers and Acquisitions Practice" ;
+    skos:definition "The purchase of one company by another (an acquisition), or the blending of two companies into a new entity (a merger). A merger is a process by which two companies join and one new company continues to exist." ;
+    rdfs:subClassOf <http://lmss.sali.org/RKzL5nW7IGg4mvAPFX2MUL> .
+
+<http://lmss.sali.org/RDEuNPJBSNIARaYTXJwi86w> a owl:Class, skos:Concept ;
+    rdfs:label "Regulatory Compliance" ; skos:prefLabel "Regulatory Compliance" ;
+    skos:definition "The process by which an entity (i.e., organization or person) ensures that it observes and complies with the external statutory laws and regulations." ;
+    rdfs:subClassOf <http://lmss.sali.org/RBWo88jsbY4qHzhlTFr5Np7> .
+
+<http://lmss.sali.org/RDFhkhLQDtnN9dqbZSYSlpC> a owl:Class, skos:Concept ;
+    rdfs:label "Insurance Law" ; skos:prefLabel "Insurance Law" ;
+    skos:definition "Law surrounding insurance, including insurance policies and claims." ;
+    rdfs:subClassOf <http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> .
+
+<http://lmss.sali.org/RDhvWIsvqcsGHZCNoyqb9OQ> a owl:Class, skos:Concept ;
+    rdfs:label "Regulatory Investigation" ; skos:prefLabel "Regulatory Investigation" ;
+    skos:definition "A regulatory investigation is a formal inquiry conducted by a governmental or regulatory agency to examine whether laws, regulations, or industry standards have been violated. It aims to ensure compliance, enforce rules, and protect public interests in various sectors such as finance, healthcare, and environmental protection." ;
+    rdfs:subClassOf <http://lmss.sali.org/RBWo88jsbY4qHzhlTFr5Np7> .
+
+<http://lmss.sali.org/Rd6ivGOMbi4Slsu4ynPmMX> a owl:Class, skos:Concept ;
+    rdfs:label "Health Law" ; skos:prefLabel "Health Law" ;
+    skos:definition "Law, rules, regulations and other jurisprudence among providers, payers and vendors to the health care industry and its patients; and (2) delivery of health care services; all with an emphasis on operations, regulatory and transactional legal issues." ;
+    rdfs:subClassOf <http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> .
+
+<http://lmss.sali.org/Rq7yrbwVSqS8fuRtnzDx6g> a owl:Class, skos:Concept ;
+    rdfs:label "Telecommunications, Media, and Entertainment Law" ; skos:prefLabel "Telecommunications, Media, and Entertainment Law" ;
+    skos:definition "Telecommunications, Media, and Entertainment Law involves the legal principles, regulations, and issues that govern the entertainment industry and media enterprises, including film, music, publishing, and digital media. It encompasses various areas such as Advertising Law, Sports Law, and Entertainment Law." ;
+    rdfs:subClassOf <http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> .
+
+<http://lmss.sali.org/RxPxADB12qeAIDAFEgWRsz> a owl:Class, skos:Concept ;
+    rdfs:label "Private Equity, Hedge Funds and Venture Capital Law" ; skos:prefLabel "Private Equity, Hedge Funds and Venture Capital Law" ;
+    skos:definition "Private Equity, Hedge Funds, and Venture Capital Law encompasses the legal frameworks governing private equity investments, hedge funds, and venture capital financing. It involves regulations related to fund formation, management, investment, compliance, investor rights, and financial transactions within these sectors." ;
+    rdfs:subClassOf <http://lmss.sali.org/RCF0BMeSwppddfM6cp6AUBK> .
+
+<http://lmss.sali.org/R7K2qUhID6JtseZQoE6bEEf> a owl:Class ; rdfs:label "Funds Practice" .
+<http://lmss.sali.org/RBWo88jsbY4qHzhlTFr5Np7> a owl:Class ; rdfs:label "Regulatory Services (Non-Dispute)" .
+<http://lmss.sali.org/RCF0BMeSwppddfM6cp6AUBK> a owl:Class ; rdfs:label "Securities and Financial Instruments Law" .
+<http://lmss.sali.org/RDigDgTiLFmt7iX3436yCOT> a owl:Class ; rdfs:label "Dispute Service" .
+<http://lmss.sali.org/RKzL5nW7IGg4mvAPFX2MUL> a owl:Class ; rdfs:label "Transactional Practice" .
+<http://lmss.sali.org/RSYBzf149Mi5KE0YtmpUmr> a owl:Class ; rdfs:label "Area of Law" .
+<http://lmss.sali.org/RvpVqC4Gt7SDHOy4JCOKCy> a owl:Class ; rdfs:label "Business Formation Practice" .

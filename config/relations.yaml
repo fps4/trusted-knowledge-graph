@@ -1,0 +1,25 @@
+# The relations the graph asserts: who owns each, whether it states the present
+# or a point in time, which competency questions serve it, which shapes gate it.
+# A relation with no owner is a relation nobody can correct. The test suite checks
+# that every predicate a template uses is listed here, and that every template
+# listed uses it.
+#
+#   time  current-state   true now, overwritten when it changes
+#         point-in-time   true on a date, and stays true about that date
+#         valid-time      true between two dates, both recorded
+
+relations:
+  - {predicate: forClient,           owner: Practice Support,        source: g:spine/pms, time: current-state, templates: [CQ-01, CQ-02, CQ-03, CQ-06, CQ-09-practice, CQ-09-finance, CQ-09-risk], shapes: [MatterShape]}
+  - {predicate: ledBy,               owner: Practice Support,        source: g:spine/pms, time: current-state, templates: [CQ-01, CQ-02, CQ-06, CQ-07], shapes: [MatterShape]}
+  - {predicate: matterType,          owner: Knowledge Management,    source: g:spine/pms, time: current-state, templates: [CQ-01, CQ-02, CQ-05, CQ-06, CQ-07], shapes: [MatterShape]}
+  - {predicate: inJurisdiction,      owner: Practice Support,        source: g:spine/pms, time: current-state, templates: [CQ-02, CQ-07], shapes: [MatterShape]}
+  - {predicate: office,              owner: HR and Practice Support, source: g:spine/pms, time: current-state, templates: [CQ-05], shapes: []}
+  - {predicate: openedOn,            owner: Practice Support,        source: g:spine/pms, time: point-in-time, templates: [CQ-01, CQ-02, CQ-05, CQ-06, CQ-07, CQ-09-practice, CQ-09-risk], shapes: [MatterShape]}
+  - {predicate: closedOn,            owner: Practice Support,        source: g:spine/pms, time: point-in-time, templates: [CQ-01, CQ-02, CQ-06, CQ-09-practice], shapes: [MatterShape]}
+  - {predicate: assignmentPerson,    owner: Practice Support,        source: g:spine/pms, time: valid-time,    templates: [CQ-03], shapes: [AssignmentShape]}
+  - {predicate: invoiceMatter,       owner: Finance,                 source: g:spine/pms, time: point-in-time, templates: [CQ-09-finance], shapes: [InvoiceShape]}
+  - {predicate: invoicedOn,          owner: Finance,                 source: g:spine/pms, time: point-in-time, templates: [CQ-09-finance], shapes: [InvoiceShape]}
+  - {predicate: relationshipPartner, owner: Business Development,    source: g:spine/crm, time: current-state, templates: [CQ-04, CQ-09-bd], shapes: []}
+  - {predicate: clientType,          owner: Knowledge Management,    source: g:spine/pms, time: current-state, templates: [CQ-02], shapes: [ClientShape]}
+  - {predicate: hadOutcome,          owner: the partner who told us, source: g:asserted,  time: point-in-time, templates: [CQ-02, CQ-06], shapes: [FactShape, DerivedGraphShape]}
+  - {predicate: hasExpertise,        owner: Knowledge Management,    source: g:asserted,  time: point-in-time, templates: [CQ-08], shapes: [FactShape, DerivedGraphShape]}

@@ -1,0 +1,57 @@
+# How the firm's own vocabularies relate to SALI LMSS — reuse by mapping, not by
+# adoption. The firm keeps its practice areas and matter types (knowledge
+# management owns them and can change them without a release); each concept says
+# how it relates to the public standard, and the relation is honest:
+#
+#   exactMatch   the same concept              — none, as it happens
+#   closeMatch   near enough to interchange for retrieval, not for reasoning
+#   broadMatch   SALI's concept is broader than the firm's
+#   narrowMatch  SALI's concept is narrower than the firm's
+#
+# SALI IRIs were read from the release pinned below, not typed from memory.
+# The namespace is http://lmss.sali.org/ — not the https://sali.org/ one might
+# guess. See docs/decisions/0016 and docs/sources.md.
+
+source:
+  url: https://raw.githubusercontent.com/sali-legal/LMSS/3f9ac0c9357b2a971582ae79ede243511d47811d/LMSS.owl
+  commit: 3f9ac0c9357b2a971582ae79ede243511d47811d
+  committed: 2026-03-10
+  licence: MIT
+  namespace: http://lmss.sali.org/
+
+practice-area:
+  asset-management-funds:
+    - {match: closeMatch,  sali: RBGwrXLh0uuXtUN70lvWZao}   # Investment Companies Law
+    - {match: closeMatch,  sali: RxPxADB12qeAIDAFEgWRsz}    # Private Equity, Hedge Funds and Venture Capital Law
+  financial-institutions:
+    # The firm's FI group covers banks and insurers; SALI splits them. Each SALI
+    # concept is narrower than the group.
+    - {match: narrowMatch, sali: R7meQhKYGkcA57UZ7v4JOdA}   # Banking Law
+    - {match: narrowMatch, sali: RDFhkhLQDtnN9dqbZSYSlpC}   # Insurance Law
+  tmt:
+    # TMT includes technology; SALI's TME does not.
+    - {match: closeMatch,  sali: Rq7yrbwVSqS8fuRtnzDx6g}    # Telecommunications, Media, and Entertainment Law
+  healthcare-life-sciences:
+    - {match: closeMatch,  sali: Rd6ivGOMbi4Slsu4ynPmMX}    # Health Law
+  energy-infrastructure:
+    # Infrastructure is not in SALI's Energy Law; the firm's group is broader.
+    - {match: narrowMatch, sali: R9pmjLDKAMzm147xIPPq5ul}   # Energy Law
+
+matter-type:
+  regulatory-investigation:
+    - {match: closeMatch,  sali: RDhvWIsvqcsGHZCNoyqb9OQ}   # Regulatory Investigation
+  enforcement-action:
+    - {match: closeMatch,  sali: R323NrrdMAKWvV45HB4CII}    # Regulatory Enforcement
+  regulatory-advisory:
+    - {match: closeMatch,  sali: RDEuNPJBSNIARaYTXJwi86w}   # Regulatory Compliance
+  fund-formation:
+    - {match: closeMatch,  sali: R9Q4kB7yGIbUD9aMTcdvOG6}   # Fund Formation Practice
+  corporate-transaction:
+    # The firm's transactions include financings and joint ventures; SALI's M&A
+    # practice is one part of that.
+    - {match: narrowMatch, sali: RBosma6qE0p7REgIqlUxvIR}   # Mergers and Acquisitions Practice
+  commercial-litigation:
+    - {match: broadMatch,  sali: R79LjWBKHCdmQKEW6zPY8Co}   # Litigation Practice
+  # SALI files Regulatory Investigation under "Regulatory Services (Non-Dispute)".
+  # The firm treats an investigation as contentious. The mapping holds; the
+  # difference in framing is worth knowing before anyone reasons over parents.
