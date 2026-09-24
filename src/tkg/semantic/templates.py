@@ -98,7 +98,12 @@ CQ02 = Template(
     ),
     slots=(
         Slot("client_type", "iri", iri.concept("client-type", "fund-manager"), "client type"),
-        Slot("matter_type", "iri", iri.concept("matter-type", "regulatory-investigation"), "matter type"),
+        Slot(
+            "matter_type",
+            "iri",
+            iri.concept("matter-type", "regulatory-investigation"),
+            "matter type",
+        ),
         Slot("jurisdiction", "iri", iri.jurisdiction("NL"), "jurisdiction"),
         Slot("since", "date", "2021-01-01", "earliest opening date"),
     ),

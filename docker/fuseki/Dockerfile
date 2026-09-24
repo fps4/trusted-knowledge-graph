@@ -22,8 +22,10 @@ USER fuseki
 WORKDIR /fuseki
 EXPOSE 3030
 
-HEALTHCHECK --interval=5s --timeout=3s --retries=30 --start-period=10s \
-  CMD curl -fsS http://localhost:3030/$/ping || exit 1
+HEALTHCHECK --interval=5s --timeout=3s --retries=40 --start-period=10s \
+  CMD ["curl", "-fsS", "http://localhost:3030/$/ping"]
 
-# --update so the loader can write; --tdb2 for a persistent quad store
-CMD ["sh", "-c", "exec java ${JAVA_OPTIONS:--Xmx2g} -jar /opt/fuseki/fuseki-server.jar --tdb2 --loc=/fuseki/databases/tkg --update /tkg"]
+# The TDB2 location must exist before the server starts, and /fuseki/databases is
+# a volume — so it is created at start, not at build, or an empty volume wins.
+# --update so the loader can write; --tdb2 for a persistent quad store.
+CMD ["sh", "-c", "mkdir -p /fuseki/databases/tkg && exec java ${JAVA_OPTIONS:--Xmx2g} -jar /opt/fuseki/fuseki-server.jar --tdb2 --loc=/fuseki/databases/tkg --update /tkg"]

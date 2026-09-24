@@ -33,10 +33,10 @@ cq: ## List the competency questions
 	$(JOB) cq
 
 test: ## Unit tests, in the image that runs the lab
-	$(JOB) --entrypoint pytest -q
+	$(COMPOSE) run --rm --entrypoint pytest jobs -q
 
 lint: ## Ruff
-	$(JOB) --entrypoint ruff check src tests
+	$(COMPOSE) run --rm --entrypoint ruff jobs check src tests
 
 ps: ## What is running
 	$(COMPOSE) ps

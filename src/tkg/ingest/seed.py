@@ -70,7 +70,10 @@ def seed(admin_dsn: str, est: Estate) -> dict[str, int]:
         cur.executemany(
             "INSERT INTO crm.contact (contact_ref, account_ref, full_name, job_title, since)"
             " VALUES (%s,%s,%s,%s,%s)",
-            [(c.contact_ref, c.account_ref, c.full_name, c.job_title, c.since) for c in est.contacts],
+            [
+                (c.contact_ref, c.account_ref, c.full_name, c.job_title, c.since)
+                for c in est.contacts
+            ],
         )
         conn.commit()
 

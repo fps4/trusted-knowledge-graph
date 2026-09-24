@@ -83,9 +83,8 @@ def map_cmd() -> None:
     """Run the R2RML mappings over the live database into N-Quads."""
     cfg = _settings()
     out = cfg.data_dir / "generated" / "spine.nq"
-    materialize(cfg.sqlalchemy_url, cfg.mappings_dir, out)
-    lines = sum(1 for _ in out.open())
-    console.print(f"[green]mapped[/] {lines} quads → {out}")
+    n = materialize(cfg.sqlalchemy_url, cfg.mappings_dir, out)
+    console.print(f"[green]mapped[/] {n} quads → {out}")
 
 
 @app.command()
@@ -100,8 +99,8 @@ def load(skip_seed: bool = typer.Option(False, "--skip-seed")) -> None:
         console.print("[green]1/4 seeded[/] " + " · ".join(f"{v} {k}" for k, v in counts.items()))
 
     quads = cfg.data_dir / "generated" / "spine.nq"
-    materialize(cfg.sqlalchemy_url, cfg.mappings_dir, quads)
-    console.print(f"[green]2/4 mapped[/] {sum(1 for _ in quads.open())} quads from R2RML")
+    n = materialize(cfg.sqlalchemy_url, cfg.mappings_dir, quads)
+    console.print(f"[green]2/4 mapped[/] {n} quads from R2RML over the live database")
 
     taxonomy_ttl = taxonomies.build_turtle(config)
     data = union_graph(quads, [taxonomy_ttl, cfg.ontology_dir / "firm.ttl"])
@@ -142,14 +141,15 @@ def cq() -> None:
 def _render(answer, show_query: bool) -> None:
     console.print(f"[bold]{answer.template.id}[/]  {answer.template.question}")
     if answer.slots:
-        console.print(
-            "[dim]slots  " + " · ".join(f"{k}={iri.shorten(v)}" for k, v in answer.slots.items()) + "[/]"
-        )
+        shown = " · ".join(f"{k}={iri.shorten(v)}" for k, v in answer.slots.items())
+        console.print(f"[dim]slots  {shown}[/]")
     if show_query:
         console.print(Syntax(answer.bound_query.strip(), "sparql", theme="ansi_dark"))
     if not answer.rows:
-        console.print("[yellow]The graph has no facts for this question.[/] "
-                      "That is an answer, and it is scored as one.\n")
+        console.print(
+            "[yellow]The graph has no facts for this question.[/] "
+            "That is an answer, and it is scored as one.\n"
+        )
         return
     table = Table(show_header=True, header_style="dim")
     for column in answer.template.columns:
@@ -197,7 +197,9 @@ def demo() -> None:
     for template_id in TEMPLATES:
         answer = resolver.ask(template_id)
         _render(answer, show_query=(template_id == "CQ-02"))
-    console.rule("[dim]M0: every fact above came from a system of record, and says which one")
+    console.rule(
+        "[dim]M0: every fact above came from a system of record, and says which one"
+    )
 
 
 def main() -> None:

@@ -39,5 +39,12 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# typer declares CLI options as argument defaults; that is the framework's idiom,
+# not the mutable-default bug B008 exists to catch.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# rdflib drives an older pyparsing API. Upstream noise, not ours.
+filterwarnings = ["ignore::DeprecationWarning:rdflib.*"]

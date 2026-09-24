@@ -322,7 +322,8 @@ def build(cfg: dict, seed: int) -> Estate:  # noqa: C901 - a generator reads bet
             continue  # a client the CRM never heard of
         name = client.crm_name
         if name is None:
-            name = _drift(client.name, rng) if rng.random() < cfg["mess"]["crm_name_drift"] else client.name
+            drift = rng.random() < cfg["mess"]["crm_name_drift"]
+            name = _drift(client.name, rng) if drift else client.name
         ref = f"A-{client.client_ref.split('-')[1]}"
         est.accounts.append(
             Account(
@@ -347,7 +348,8 @@ def build(cfg: dict, seed: int) -> Estate:  # noqa: C901 - a generator reads bet
             )
 
     # ── restrictions: five matters behind a barrier, as the spec says ────────
-    unrestricted = [m for m in est.matters if m.matter_ref not in {r.matter_ref for r in est.restrictions}]
+    already = {r.matter_ref for r in est.restrictions}
+    unrestricted = [m for m in est.matters if m.matter_ref not in already]
     while len(est.restrictions) < 5:
         m = rng.choice(unrestricted)
         est.restrictions.append(
