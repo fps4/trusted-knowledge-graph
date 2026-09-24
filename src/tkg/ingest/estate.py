@@ -115,6 +115,9 @@ class Estate:
     contacts: list[Contact] = field(default_factory=list)
     restrictions: list[Restriction] = field(default_factory=list)
     invoices: list[Invoice] = field(default_factory=list)
+    # Ground truth that no system of record holds: how each closed matter ended.
+    # It reaches the lab only through documents and what partners tell.
+    outcomes: dict[str, str] = field(default_factory=dict)
 
 
 def _as_date(value) -> date | None:
@@ -389,4 +392,16 @@ def build(cfg: dict, seed: int) -> Estate:  # noqa: C901 - a generator reads bet
                 )
             )
             day += timedelta(days=rng.randint(lo, hi))
+
+    # ── outcomes: the truth the documents will carry ─────────────────────────
+    pinned_outcomes = pinned.get("outcomes", {}) or {}
+    by_type: dict[str, list[str]] = {}
+    for o in cfg["outcomes"]:
+        for t in o["for"]:
+            by_type.setdefault(t, []).append(o["id"])
+    for m in est.matters:
+        if m.closed_on is None:
+            continue
+        drawn = rng.choice(by_type[m.matter_type])
+        est.outcomes[m.matter_ref] = pinned_outcomes.get(m.matter_ref, drawn)
     return est
