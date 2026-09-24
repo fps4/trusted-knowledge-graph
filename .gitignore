@@ -1,0 +1,11 @@
+.env
+secrets/
+audit/
+data/generated/
+data/fixtures/*.nq
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
