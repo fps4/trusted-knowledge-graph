@@ -11,6 +11,7 @@ import psycopg
 from .estate import Estate
 
 TABLES = [
+    "pms.invoice",
     "pms.matter_restriction",
     "pms.matter_team",
     "pms.matter",
@@ -60,6 +61,11 @@ def seed(admin_dsn: str, est: Estate) -> dict[str, int]:
             [(r.matter_ref, r.rule_id, r.kind, r.set_on, r.set_by) for r in est.restrictions],
         )
         cur.executemany(
+            "INSERT INTO pms.invoice (invoice_ref, matter_ref, invoiced_on, amount_eur)"
+            " VALUES (%s,%s,%s,%s)",
+            [(i.invoice_ref, i.matter_ref, i.invoiced_on, i.amount_eur) for i in est.invoices],
+        )
+        cur.executemany(
             "INSERT INTO crm.account (account_ref, name, account_type,"
             " relationship_partner_ref, since) VALUES (%s,%s,%s,%s,%s)",
             [
@@ -85,4 +91,5 @@ def seed(admin_dsn: str, est: Estate) -> dict[str, int]:
         "accounts": len(est.accounts),
         "contacts": len(est.contacts),
         "restrictions": len(est.restrictions),
+        "invoices": len(est.invoices),
     }

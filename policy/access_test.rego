@@ -10,6 +10,7 @@ fixture := {
 		"ID-02": {"rule": "ID-02"},
 		"ID-03": {"rule": "ID-03"},
 		"LN-01": {"rule": "LN-01"},
+		"AU-01": {"rule": "AU-01"},
 	},
 	"principals": {
 		"mara": {"kind": "person", "role": null, "person": "P-1", "practice_area": "am", "office": "AMS"},
@@ -107,4 +108,20 @@ test_risk_sees_no_matter_content if {
 	d := decide("risk", ["M-FREE"], {}).matters["M-FREE"]
 	not d.allow
 	d.grounds[0].rule == "ID-03"
+}
+
+reads_log(who) := d if {
+	d := access.audit with data.barriers as fixture with input as {"principal": who}
+}
+
+test_risk_reads_the_decision_record if {
+	reads_log("risk").allow
+}
+
+test_no_one_else_reads_the_decision_record if {
+	not reads_log("mara").allow
+	not reads_log("sanne").allow
+	not reads_log("percy").allow
+	not reads_log("nobody").allow
+	reads_log("sanne").grounds[0].rule == "AU-01"
 }

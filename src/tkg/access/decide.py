@@ -89,6 +89,20 @@ class Opa:
             graphs=result.get("graphs", {}),
         )
 
+    def may_read_record(self, principal: str) -> tuple[bool, list[dict]]:
+        """Reading the decision record is an access decision, made here like any other."""
+        payload = {"input": {"principal": principal}}
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(f"{self.base}/v1/data/tkg/access/audit", json=payload)
+                response.raise_for_status()
+                result = response.json().get("result")
+        except httpx.HTTPError as exc:
+            raise PolicyUnavailable(str(exc)) from exc
+        if not result:
+            raise PolicyUnavailable("OPA returned no audit decision")
+        return result["allow"], result["grounds"]
+
     def ping(self) -> bool:
         try:
             with httpx.Client(timeout=3.0) as client:

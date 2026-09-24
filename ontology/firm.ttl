@@ -12,7 +12,7 @@
 ranges, and nothing that needs a reasoner to be useful. The vocabulary for areas of
 law and matter types is a SKOS scheme, not a class hierarchy, so that knowledge
 management can own it without a release. M2 maps that scheme onto SALI LMSS.""" ;
-    owl:versionInfo "0.2.0 — M1" .
+    owl:versionInfo "0.3.0 — M2" .
 
 # ── Classes ──────────────────────────────────────────────────────────────────
 ssf:Matter       a owl:Class ; rdfs:label "Matter" .
@@ -97,3 +97,27 @@ ssf:hasExpertise a owl:ObjectProperty ; rdfs:label "has expertise in" ;
 # lineage is what decides who may see it: docs/decisions/0008.
 ssf:DerivedGraph a owl:Class ; rdfs:label "Derived graph" ;
     rdfs:subClassOf prov:Entity .
+
+# ── Billing (M2) ─────────────────────────────────────────────────────────────
+ssf:Invoice       a owl:Class ; rdfs:label "Invoice" .
+ssf:invoiceMatter a owl:ObjectProperty   ; rdfs:domain ssf:Invoice ; rdfs:range ssf:Matter .
+ssf:invoicedOn    a owl:DatatypeProperty ; rdfs:domain ssf:Invoice ; rdfs:range xsd:date .
+ssf:amountEur     a owl:DatatypeProperty ; rdfs:domain ssf:Invoice ; rdfs:range xsd:integer .
+
+# ── The glossary (M2) ────────────────────────────────────────────────────────
+# A business term is a skos:Concept in g:glossary with an owner. A term that
+# means different things to different owners has readings, and says what to do
+# when a question does not choose one. docs/decisions/0015.
+ssf:BusinessTerm a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Business term" .
+ssf:Reading      a owl:Class ; rdfs:subClassOf skos:Concept ; rdfs:label "Reading of a term" ;
+    rdfs:comment "One owner's definition of a term that means different things to different owners." .
+ssf:owner        a owl:DatatypeProperty ; rdfs:label "owner" ;
+    rdfs:comment "Who decides what this means. Not an engineer." .
+ssf:hasReading   a owl:ObjectProperty ; rdfs:domain skos:Concept ; rdfs:range skos:Concept .
+ssf:readingKey   a owl:DatatypeProperty ; rdfs:range xsd:string .
+ssf:onAmbiguous  a owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "ask | refuse | default:<reading> — what a question that does not choose a reading gets." .
+ssf:servedBy     a owl:DatatypeProperty ; rdfs:comment "The competency-question template that answers this reading." .
+ssf:means        a owl:ObjectProperty ; rdfs:comment "A value this term fills into a slot, e.g. fund manager → gl:client-type/fund-manager." .
+ssf:meansSlot    a owl:DatatypeProperty .
+ssf:meansValue   a owl:ObjectProperty .

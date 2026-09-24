@@ -114,10 +114,19 @@ class Fuseki:
 
 
 def push(
-    fuseki: Fuseki, quads_paths: list[Path], ontology_path: Path, taxonomy_ttl: str
+    fuseki: Fuseki,
+    quads_paths: list[Path],
+    ontology_path: Path,
+    taxonomy_ttl: str,
+    glossary_ttl: str = "",
+    sali_path: Path | None = None,
 ) -> None:
     fuseki.drop_all()
     for quads_path in quads_paths:
         fuseki.load_quads(quads_path)
     fuseki.load_turtle(ontology_path.read_text(), iri.G_ONTOLOGY)
     fuseki.load_turtle(taxonomy_ttl, iri.G_ONTOLOGY)
+    if glossary_ttl:
+        fuseki.load_turtle(glossary_ttl, iri.G_GLOSSARY)
+    if sali_path is not None:
+        fuseki.load_turtle(sali_path.read_text(), iri.G_SALI)

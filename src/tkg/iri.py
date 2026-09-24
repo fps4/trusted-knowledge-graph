@@ -22,8 +22,12 @@ G_PROV = GRAPH + "prov"
 # One graph per fact told by a person: g:asserted/<personRef>/<date>.
 G_ASSERTED = GRAPH + "asserted/"
 
+# The business glossary, and the slice of SALI LMSS it maps to.
+G_GLOSSARY = GRAPH + "glossary"
+G_SALI = GRAPH + "vocab/sali"
+
 SPINE_GRAPHS = (G_SPINE_PMS, G_SPINE_CRM, G_SPINE_HR)
-VOCAB_GRAPHS = (G_ONTOLOGY,)
+VOCAB_GRAPHS = (G_ONTOLOGY, G_GLOSSARY, G_SALI)
 
 PREFIXES = """PREFIX ssf:  <https://lab.fps4.dev/firm/>
 PREFIX id:   <https://lab.fps4.dev/id/>
@@ -33,6 +37,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX lmss: <http://lmss.sali.org/>
 """
 
 
@@ -81,6 +86,7 @@ def shorten(iri: str) -> str:
         (GLOSSARY, "gl:"),
         (GRAPH, "g:"),
         (FIRM, "ssf:"),
+        ("http://lmss.sali.org/", "lmss:"),
     ):
         if iri.startswith(long):
             return short + iri[len(long) :]

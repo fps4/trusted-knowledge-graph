@@ -32,6 +32,13 @@ class FakeFuseki:
 
     def query(self, sparql):
         self.queries.append(sparql)
+        if "ssf:matterRef ?ref } }" in sparql:  # the audit reader's hash table
+            return {"results": {"bindings": [{"ref": _lit(m)} for m in (OPEN, SHUT)]}}
+        if "a ssf:DerivedGraph" in sparql:
+            return {"results": {"bindings": [{"g": _uri(g)} for g in (TOLD_OPEN, TOLD_SHUT)]}}
+        if "prov:wasDerivedFrom+ <" in sparql:
+            g = TOLD_SHUT if SHUT in sparql else TOLD_OPEN
+            return {"results": {"bindings": [{"g": _uri(g)}]}}
         if "SELECT DISTINCT" in sparql:
             rows = []
             only = re.search(r"FILTER \(\?matter = <[^>]*/(M-\d{4}-\d{4})>\)", sparql)
@@ -64,10 +71,15 @@ class FakeOpa:
     def __init__(self, disclosure="withheld-count", principal=None, down=False):
         self.disclosure, self.principal, self.down = disclosure, principal or [], down
 
+    def may_read_record(self, principal):
+        if principal == "risk@lab.invalid":
+            return True, []
+        return False, [{"rule": "AU-01", "kind": "identity"}]
+
     def decide(self, principal, matters, lineage_map):
         if self.down:
             raise PolicyUnavailable("connection refused")
-        denied = {SHUT}
+        denied = {SHUT} if principal.startswith("sanne") else set()
         return Decision(
             policy_version="test+1",
             disclosure=self.disclosure,
@@ -80,7 +92,8 @@ class FakeOpa:
         )
 
 
-PERSONAS = {"sanne": {"principal": "sanne@lab.invalid"}, "mara": {"principal": "mara@lab.invalid"}}
+PERSONAS = {"sanne": {"principal": "sanne@lab.invalid"}, "mara": {"principal": "mara@lab.invalid"},
+            "risk": {"principal": "risk@lab.invalid"}}
 
 
 @pytest.fixture
@@ -184,3 +197,72 @@ def test_a_rejected_slot_value_is_not_recorded(make):
     r = resolver.ask("sanne", "CQ-02", {"since": "the day Rhine Capital called"})
     assert r["outcome"] == "refused-invalid"
     assert "Rhine" not in log.read_text()
+
+
+ACTIVE = None
+
+
+@pytest.fixture
+def glossary_stub(monkeypatch):
+    from tkg.semantic import glossary
+
+    term = glossary.Term(
+        "active-client", "active client", "Depends.", "Knowledge Management", "ask", "CQ-09",
+        readings=[glossary.Reading("practice", "p", "open matter", "Practice", "CQ-09-practice"),
+                  glossary.Reading("bd", "b", "CRM account", "BD", "CQ-09-bd")],
+    )
+    monkeypatch.setattr(glossary, "by_id", lambda fuseki, tid: term if tid == term.id else None)
+    monkeypatch.setattr(glossary, "lookup", lambda fuseki, text: [term])
+    return term
+
+
+def test_an_ambiguous_term_is_refused_at_the_router_with_its_readings(make, glossary_stub):
+    resolver, fuseki, log = make()
+    r = resolver.ask("mara", "CQ-09", {})
+    assert r["outcome"] == "refused-ambiguous" and r["route"]["route"] == "refuse"
+    assert [x["key"] for x in r["readings"]] == ["practice", "bd"]
+    assert not fuseki.queries, "nothing is retrieved for a question that means two things"
+    assert read(log)[-1]["route"]["route"] == "refuse"
+
+
+def test_a_chosen_reading_is_recorded_with_its_owner(make, glossary_stub):
+    resolver, _, log = make()
+    r = resolver.ask("mara", "CQ-09", {"reading": "practice"})
+    assert r["terms"] == [{"term": "active-client", "reading": "practice", "owner": "Practice"}]
+    record = read(log)[-1]
+    assert record["template"] == "CQ-09-practice" and record["question_id"] == "CQ-09"
+    assert record["returned"]["counted"] == sorted([OPEN, SHUT])
+
+
+def test_resolve_term_decides_each_count_for_the_person_asking(make, glossary_stub):
+    resolver, _, log = make()
+    r = resolver.resolve_term("sanne", "active client")
+    by = {x["key"]: x for x in r["readings"]}
+    assert by["practice"]["outcome"] == "refused-aggregate"
+    assert by["bd"]["outcome"] == "answered"
+    record = read(log)[-1]
+    assert record["request"] == "resolve_term" and len(record["readings"]) == 2
+    assert "active client" not in json.dumps(record), "free text is not recorded"
+    assert SHUT not in log.read_text()
+
+
+def test_only_risk_reads_the_record_and_risk_reads_are_recorded(make):
+    resolver, _, log = make()
+    shut = resolver.ask("sanne", "CQ-06", {"matter": SHUT})
+    assert resolver.audit_subject("sanne", SHUT)["outcome"] == "refused"
+    seen = resolver.audit_subject("risk", SHUT)
+    assert seen["outcome"] == "shown"
+    assert seen["refused"][0]["persona"] == "sanne" and seen["refused"][0]["rules"] == ["B-03"]
+    trace = resolver.audit_trace("risk", shut["trace"])["record"]
+    assert f"matter:{SHUT}" in json.dumps(trace), "risk resolves the hash"
+    reads = [r for r in read(log) if r["request"].startswith("audit.")]
+    assert [r["outcome"] for r in reads] == ["refused", "shown", "shown"]
+    assert SHUT not in log.read_text(), "what risk asked about is hashed in risk's own record"
+    assert verify(log).ok
+
+
+def test_the_subject_question_finds_who_was_shown_it_by_lineage(make):
+    resolver, _, _ = make()
+    resolver.ask("mara", "CQ-08", {"person": "P-0101"})
+    seen = resolver.audit_subject("risk", SHUT)
+    assert any("by lineage" in h for s in seen["shown"] for h in s["how"])

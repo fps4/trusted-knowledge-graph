@@ -4,7 +4,7 @@ AS      ?= mara
 
 .DEFAULT_GOAL := help
 .PHONY: help init build up down reset load policy demo ask explain doctor cq test lint \
-        leak verify-audit reset-audit boundary up-stores mcp-configs ps logs
+        leak verify-audit reset-audit boundary up-stores mcp-configs term audit glossary reports sali ps logs
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
@@ -42,6 +42,26 @@ ask: ## One question as one persona: make ask Q=CQ-06 AS=sanne S="matter=M-2022-
 explain: ## Why a trace was decided as it was: make explain T=t-1a2b3c4d AS=sanne
 	$(JOB) explain $(T) --as $(AS)
 
+term: ## What a business word means, and who owns that: make term W="active client" AS=sanne
+	$(JOB) term "$(or $(W),active client)" --as $(AS)
+
+audit: ## The three governance questions as Risk, over the last run → reports/audit.md
+	$(JOB) audit-report
+
+glossary: ## Terms, readings and their counts, SALI mapping, relations → reports/glossary.md
+	$(JOB) glossary-report
+
+reports: ## Regenerate everything under reports/ from a fresh record
+	@rm -f audit/decisions.jsonl
+	$(JOB) demo > /dev/null
+	$(JOB) audit-report
+	$(JOB) glossary-report
+	$(JOB) leak
+	$(JOB) verify-audit
+
+sali: ## Re-import the SALI LMSS subset at the commit pinned in config/sali-mapping.yaml (network)
+	python3 scripts/sali-subset.py
+
 leak: ## The barrier suite — every rule, every persona, four shapes → reports/leak.md
 	$(JOB) leak
 
@@ -74,7 +94,7 @@ test: ## Unit tests and the policy's own tests
 	docker run --rm -v "$(CURDIR)/policy:/policy:ro" openpolicyagent/opa:1.9.0-static test /policy
 
 lint: ## Ruff, and the Rego formatter
-	$(COMPOSE) run --rm --entrypoint ruff jobs check src tests
+	$(COMPOSE) run --rm -e RUFF_CACHE_DIR=/tmp/ruff --entrypoint ruff jobs check src tests
 	docker run --rm -v "$(CURDIR)/policy:/policy:ro" openpolicyagent/opa:1.9.0-static fmt --fail --list /policy
 
 ps: ## What is running

@@ -38,8 +38,24 @@ class ResolverClient:
     def templates(self) -> list[dict]:
         return self._call("GET", "/templates")
 
-    def ask(self, template_id: str, slots: dict[str, str] | None = None) -> dict:
-        return self._call("POST", "/ask", {"template_id": template_id, "slots": slots or {}})
+    def ask(self, template_id: str, slots: dict[str, str] | None = None,
+            terms: list[str] | None = None) -> dict:
+        return self._call("POST", "/ask", {"template_id": template_id, "slots": slots or {},
+                                           "terms": terms or []})
+
+    def resolve_term(self, text: str) -> dict:
+        return self._call("POST", "/resolve_term", {"text": text})
+
+    def audit_subject(self, matter: str) -> dict:
+        return self._call("POST", "/audit/subject", {"matter": matter})
+
+    def audit_person(self, person: str, since: str | None = None,
+                     until: str | None = None) -> dict:
+        return self._call("POST", "/audit/person", {"person": person, "since": since,
+                                                     "until": until})
+
+    def audit_trace(self, trace: str) -> dict:
+        return self._call("POST", "/audit/trace", {"trace": trace})
 
     def explain(self, trace: str) -> dict:
         return self._call("POST", "/explain", {"trace": trace})

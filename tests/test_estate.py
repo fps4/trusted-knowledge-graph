@@ -70,3 +70,22 @@ def test_both_kinds_of_rule_are_in_the_system_of_record(cfg):
     kinds = {r.rule_id: r.kind for r in est.restrictions}
     assert kinds["B-03"] == "barrier"
     assert "need-to-know" in kinds.values()
+
+
+def test_invoices_stop_at_the_close_and_at_the_as_of_date(cfg):
+    from datetime import date
+
+    est = estate_mod.build(cfg, 20260924)
+    matters = {m.matter_ref: m for m in est.matters}
+    assert est.invoices
+    for inv in est.invoices:
+        m = matters[inv.matter_ref]
+        assert m.opened_on < inv.invoiced_on <= date(2025, 12, 31)
+        assert m.closed_on is None or inv.invoiced_on <= m.closed_on
+
+
+def test_adding_billing_changed_nothing_generated_before_it(cfg):
+    est = estate_mod.build(cfg, 20260924)
+    matters = {m.matter_ref: m for m in est.matters}
+    assert matters["M-2022-0022"].lead_person_ref == "P-0221"
+    assert {r.rule_id: r.matter_ref for r in est.restrictions}["B-11"] == "M-2023-0018"

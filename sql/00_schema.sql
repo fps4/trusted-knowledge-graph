@@ -62,6 +62,14 @@ CREATE TABLE pms.matter_restriction (
     PRIMARY KEY (matter_ref, rule_id)
 );
 
+-- Billing. What Finance means when it says a client is active.
+CREATE TABLE pms.invoice (
+    invoice_ref text PRIMARY KEY,
+    matter_ref  text NOT NULL REFERENCES pms.matter(matter_ref),
+    invoiced_on date NOT NULL,
+    amount_eur  integer NOT NULL
+);
+
 -- ── crm ─────────────────────────────────────────────────────────────────────
 -- Deliberately not joined to pms.client. The same organisation is spelled
 -- differently here, and resolving that is a later milestone's job, not a JOIN.
@@ -87,3 +95,4 @@ CREATE INDEX ON pms.matter (client_ref);
 CREATE INDEX ON pms.matter (lead_person_ref);
 CREATE INDEX ON pms.matter (matter_type, jurisdiction);
 CREATE INDEX ON pms.matter_team (person_ref);
+CREATE INDEX ON pms.invoice (matter_ref, invoiced_on);

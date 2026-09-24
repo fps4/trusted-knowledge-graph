@@ -81,6 +81,8 @@ class Template:
     kind: str = "rows"  # "rows" | "aggregate"
     tail: str = ""
     note: str = ""
+    needs: str = "facts"  # facts | passages | both — what the router reads
+    listed: bool = True  # False for a reading's template, reached through its term
     derived: tuple[str, ...] = field(init=False, default=())
 
     def __post_init__(self) -> None:
@@ -452,6 +454,110 @@ CQ08 = Template(
     tail="ORDER BY ?topicLabel",
 )
 
+# ── "active client": one question, four readings, four owners ─────────────
+# Each reading is its own template, reached through the term. A question that
+# names the term without choosing a reading is refused at the router with the
+# readings listed back — see TERM_QUESTIONS below and docs/decisions/0015.
+AS_OF = Slot("as_of", "date", "2025-12-31", "the date the estate is as of")
+
+CQ09_PRACTICE = Template(
+    id="CQ-09-practice",
+    question="How many active clients — a client with a matter open on the as-of date?",
+    slots=(AS_OF,),
+    columns=("n",),
+    graphs={"g": SPINE},
+    kind="aggregate",
+    listed=False,
+    select="(COUNT(DISTINCT ?client) AS ?n)",
+    where="""
+  {{access:matter}}
+  GRAPH ?g {
+    ?matter a ssf:Matter ; ssf:forClient ?client ; ssf:openedOn ?opened .
+    OPTIONAL { ?matter ssf:closedOn ?closed }
+  }
+  {{graph:g}}
+  FILTER (?opened <= {{as_of}} && (!BOUND(?closed) || ?closed > {{as_of}}))
+""",
+)
+
+CQ09_FINANCE = Template(
+    id="CQ-09-finance",
+    question="How many active clients — a client invoiced in the twelve months to the as-of date?",
+    slots=(Slot("from", "date", "2025-01-01", "start of the twelve months"), AS_OF),
+    columns=("n",),
+    graphs={"g": SPINE},
+    kind="aggregate",
+    listed=False,
+    select="(COUNT(DISTINCT ?client) AS ?n)",
+    where="""
+  {{access:matter}}
+  GRAPH ?g {
+    ?matter a ssf:Matter ; ssf:forClient ?client .
+    ?invoice ssf:invoiceMatter ?matter ; ssf:invoicedOn ?on .
+  }
+  {{graph:g}}
+  FILTER (?on >= {{from}} && ?on <= {{as_of}})
+""",
+)
+
+CQ09_BD = Template(
+    id="CQ-09-bd",
+    question="How many active clients — CRM accounts with a named relationship partner?",
+    slots=(),
+    columns=("n",),
+    graphs={"g": SPINE},
+    kind="aggregate",
+    matter_var=None,
+    listed=False,
+    note="Counts CRM accounts. Nothing has yet reconciled them with practice-management clients.",
+    select="(COUNT(DISTINCT ?account) AS ?n)",
+    where="""
+  GRAPH ?g { ?account a ssf:Account ; ssf:relationshipPartner ?partner . }
+  {{graph:g}}
+""",
+)
+
+CQ09_RISK = Template(
+    id="CQ-09-risk",
+    question="How many active clients — any organisation the firm has ever acted for?",
+    slots=(AS_OF,),
+    columns=("n",),
+    graphs={"g": SPINE},
+    kind="aggregate",
+    listed=False,
+    note="Related entities belong in this reading and are not modelled in the lab.",
+    select="(COUNT(DISTINCT ?client) AS ?n)",
+    where="""
+  {{access:matter}}
+  GRAPH ?g { ?matter a ssf:Matter ; ssf:forClient ?client ; ssf:openedOn ?opened . }
+  {{graph:g}}
+  FILTER (?opened <= {{as_of}})
+""",
+)
+
 TEMPLATES: dict[str, Template] = {
-    t.id: t for t in (CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08)
+    t.id: t
+    for t in (
+        CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08,
+        CQ09_PRACTICE, CQ09_FINANCE, CQ09_BD, CQ09_RISK,
+    )
+}
+
+
+@dataclass(frozen=True)
+class TermQuestion:
+    """A question whose meaning depends on a glossary term. The reading chooses
+    the template; the glossary, not this file, says which readings exist."""
+
+    id: str
+    question: str
+    term: str
+
+
+TERM_QUESTIONS: dict[str, TermQuestion] = {
+    "CQ-09": TermQuestion(
+        "CQ-09",
+        "How many active clients do we have? Say which reading — resolve_term('active client').",
+        "active-client",
+    ),
 }

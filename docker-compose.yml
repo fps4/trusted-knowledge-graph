@@ -69,6 +69,7 @@ services:
   # the decision record. docs/decisions/0012.
   resolver:
     build: .
+    user: "${TKG_UID:-0}:${TKG_GID:-0}"
     command: ["uvicorn", "tkg.resolver.api:app", "--host", "0.0.0.0", "--port", "8080",
               "--workers", "1"]
     environment: *tkg-env
@@ -88,11 +89,12 @@ services:
       fuseki:   {condition: service_healthy}
       opa:      {condition: service_started}
 
-  # One-shot entrypoints: seed, map, load, policy, ask, demo, leak, verify-audit.
+  # One-shot entrypoints: seed, map, load, policy, ask, term, audit, demo, leak, reports.
   # Not started by `up`; run with `docker compose run --rm jobs <command>`.
   # The operator's tool: it holds every persona's key and asks through the resolver.
   jobs:
     build: .
+    user: "${TKG_UID:-0}:${TKG_GID:-0}"
     profiles: ["jobs"]
     environment: *tkg-env
     volumes:
@@ -101,6 +103,7 @@ services:
       - ./build:/app/build
       - ./mappings:/app/mappings:ro
       - ./ontology:/app/ontology:ro
+      - ./vocab:/app/vocab:ro
       - ./config:/app/config:ro
       - ./secrets:/run/secrets/tkg:ro
       - ./audit:/app/audit:ro

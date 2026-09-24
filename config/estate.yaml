@@ -46,6 +46,11 @@ client_types:
   - {id: healthcare-provider,label: "Healthcare provider"}
   - {id: energy-company,     label: "Energy company"}
 
+# The day the estate is as of. "Open", "active" and "the last twelve months" are
+# all relative to it, so every count is reproducible rather than drifting with
+# the wall clock.
+as_of: 2025-12-31
+
 volumes:
   lawyers: 60
   clients: 150
@@ -54,6 +59,7 @@ volumes:
   last_year: 2025
   team_size: [2, 6]
   open_matter_share: 0.18      # matters with no closed_on
+  invoice_every_days: [60, 120] # billing cadence while a matter is open
 
 # The mess is generated, not hand-written, because a firm's mess is systemic.
 mess:
