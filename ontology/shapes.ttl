@@ -45,7 +45,7 @@ ssf:AssignmentShape a sh:NodeShape ;
 ssf:NoDocumentContentShape a sh:NodeShape ;
     rdfs:label "No document content in the graph" ;
     sh:targetClass ssf:Matter, ssf:Client, ssf:Person, ssf:Account, ssf:Contact,
-                   ssf:Assignment, ssf:Restriction, ssf:Fact, ssf:Invoice ;
+                   ssf:Assignment, ssf:Restriction, ssf:Fact, ssf:Invoice, ssf:Document ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "Literal longer than 500 characters. The graph holds assertions and identifiers; document content stays in the document store." ;
@@ -64,23 +64,49 @@ ssf:FactShape a sh:NodeShape ;
     sh:targetClass ssf:Fact ;
     sh:property [ sh:path ssf:factSubject   ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path ssf:factPredicate ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ( ssf:hadOutcome ssf:hasExpertise ) ;
+                  sh:in ( ssf:hadOutcome ssf:hasExpertise ssf:forClient ssf:ledBy
+                          ssf:matterType ssf:inJurisdiction ssf:workedOn ) ;
                   sh:message "A fact may only use a predicate the ontology defines for facts. An unknown predicate is rejected, not stored." ] ;
     sh:property [ sh:path ssf:factObject    ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path ssf:confidence    ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ;
                   sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
     sh:property [ sh:path ssf:reviewState   ; sh:minCount 1 ; sh:maxCount 1 ;
-                  sh:in ( "confirmed" "unconfirmed" "rejected" ) ] ;
-    sh:property [ sh:path ssf:assertedBy    ; sh:minCount 1 ; sh:maxCount 1 ; sh:class ssf:Person ;
-                  sh:message "A fact with no source is not knowledge." ] ;
-    sh:property [ sh:path ssf:assertedOn    ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+                  sh:in ( "confirmed" "unconfirmed" "extracted" "rejected" ) ] ;
+    # A source: a person who told us, or a document it was extracted from.
+    sh:xone (
+        [ sh:path ssf:assertedBy   ; sh:minCount 1 ; sh:maxCount 1 ]
+        [ sh:path ssf:fromDocument ; sh:minCount 1 ; sh:maxCount 1 ]
+    ) ;
+    sh:message "A fact with no source — or with two kinds of source — is not knowledge." .
+
+# A told fact: who told us, and when.
+ssf:ToldFactShape a sh:NodeShape ;
+    sh:targetSubjectsOf ssf:assertedBy ;
+    sh:property [ sh:path ssf:assertedBy ; sh:class ssf:Person ] ;
+    sh:property [ sh:path ssf:assertedOn ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+
+# An extracted fact: which document, which model, and where in the text — an
+# offset, not the passage.
+ssf:ExtractedFactShape a sh:NodeShape ;
+    sh:targetSubjectsOf ssf:fromDocument ;
+    sh:property [ sh:path ssf:fromDocument ; sh:class ssf:Document ] ;
+    sh:property [ sh:path ssf:extractedBy  ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:charStart    ; sh:maxCount 1 ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path ssf:charEnd      ; sh:maxCount 1 ; sh:datatype xsd:integer ] .
+
+ssf:DocumentShape a sh:NodeShape ;
+    sh:targetClass ssf:Document ;
+    sh:property [ sh:path ssf:documentMatter ; sh:minCount 1 ; sh:maxCount 1 ; sh:class ssf:Matter ] ;
+    sh:property [ sh:path ssf:docType        ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path ssf:objectKey      ; sh:minCount 1 ; sh:maxCount 1 ] .
 
 # A derived graph with no lineage would escape every barrier.
 ssf:DerivedGraphShape a sh:NodeShape ;
     sh:targetClass ssf:DerivedGraph ;
     sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
                   sh:message "A derived graph must say what it was derived from, or no barrier can reach it." ] ;
-    sh:property [ sh:path prov:wasAttributedTo ; sh:minCount 1 ; sh:class ssf:Person ] .
+    # A person who told us, or the model and pipeline version that extracted it.
+    sh:property [ sh:path prov:wasAttributedTo ; sh:minCount 1 ] .
 
 ssf:InvoiceShape a sh:NodeShape ;
     sh:targetClass ssf:Invoice ;

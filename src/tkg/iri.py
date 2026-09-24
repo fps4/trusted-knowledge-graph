@@ -16,6 +16,10 @@ GRAPH = BASE + "graph/"
 G_SPINE_PMS = GRAPH + "spine/pms"
 G_SPINE_CRM = GRAPH + "spine/crm"
 G_SPINE_HR = GRAPH + "spine/hr"
+# Document metadata as the document store knows it: id, matter, type, date, key.
+G_SPINE_DMS = GRAPH + "spine/dms"
+# One graph per document's extracted facts: g:doc/<docId>.
+G_DOC = GRAPH + "doc/"
 G_ONTOLOGY = GRAPH + "ontology"
 # Statements about graphs, not inside them: lineage, attribution.
 G_PROV = GRAPH + "prov"
@@ -26,7 +30,7 @@ G_ASSERTED = GRAPH + "asserted/"
 G_GLOSSARY = GRAPH + "glossary"
 G_SALI = GRAPH + "vocab/sali"
 
-SPINE_GRAPHS = (G_SPINE_PMS, G_SPINE_CRM, G_SPINE_HR)
+SPINE_GRAPHS = (G_SPINE_PMS, G_SPINE_CRM, G_SPINE_HR, G_SPINE_DMS)
 VOCAB_GRAPHS = (G_ONTOLOGY, G_GLOSSARY, G_SALI)
 
 PREFIXES = """PREFIX ssf:  <https://lab.fps4.dev/firm/>
@@ -63,6 +67,14 @@ def jurisdiction(code: str) -> str:
 
 def fact(ref: str) -> str:
     return f"{ID}fact/{ref}"
+
+
+def document(doc_id: str) -> str:
+    return f"{ID}doc/{doc_id}"
+
+
+def doc_graph(doc_id: str) -> str:
+    return f"{G_DOC}{doc_id}"
 
 
 def asserted_graph(person_ref: str, on: str) -> str:
