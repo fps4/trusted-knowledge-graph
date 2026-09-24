@@ -1,6 +1,14 @@
 {
   "barriers": {
     "baseline": {
+      "AU-01": {
+        "kind": "identity",
+        "owner": "Head of Risk & Compliance",
+        "rule": "AU-01",
+        "set_on": "2026-09-25",
+        "source": "config/barriers.yaml",
+        "text": "Only Risk & Compliance reads the decision record \u2014 and its reads are written into the same record."
+      },
       "ID-01": {
         "kind": "identity",
         "owner": "Head of Risk & Compliance",
@@ -35,7 +43,7 @@
       }
     },
     "disclosure": "withheld-count",
-    "policy_version": "2026-09-25+d92972c951f5",
+    "policy_version": "2026-09-25+186a71546819",
     "principals": {
       "kim.bakker@lab.invalid": {
         "kind": "person",

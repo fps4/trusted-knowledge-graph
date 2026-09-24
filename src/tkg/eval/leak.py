@@ -263,12 +263,59 @@ def run(cfg, console) -> Result:
         )
         cases.append(case)
 
+    # The glossary path: the counts per reading are decided per person, like any
+    # answer, and a question that names an ambiguous term without a reading is
+    # refused for everyone.
+    for persona in PERSONAS:
+        case = Case("—", "—", persona, "term", "resolve_term", {"text": "active client"},
+                    denied=False)
+        response = clients[persona].resolve_term("active client")
+        case.outcome, case.trace = response.get("outcome", "?"), response.get("trace", "")
+        case.leaked = _scan(response, tokens[persona])
+        if len(response.get("readings") or []) != 4:
+            case.problem = "active client did not come back with its four readings"
+        cases.append(case)
+        for reading in ("practice", "finance", "bd", "risk"):
+            case = Case("—", "—", persona, "term", "CQ-09", {"reading": reading}, denied=False)
+            _judge(case, clients[persona].ask("CQ-09", {"reading": reading}), disclosure,
+                   tokens[persona])
+            cases.append(case)
+        case = Case("—", "—", persona, "term", "CQ-09", {}, denied=False)
+        response = clients[persona].ask("CQ-09", {})
+        case.outcome, case.trace = response.get("outcome", "?"), response.get("trace", "")
+        if case.outcome != "refused-ambiguous" or response.get("rows"):
+            case.problem = "an ambiguous term was answered instead of refused"
+        cases.append(case)
+
+    # Reading the record is itself a door. Only Risk opens it.
+    for persona in (*PERSONAS, "percy-svc"):
+        c = clients[persona]
+        for name, call in (
+            ("audit_subject", lambda c=c: c.audit_subject("M-2022-0117")),
+            ("audit_person", lambda c=c: c.audit_person("sanne")),
+            ("audit_trace", lambda c=c: c.audit_trace(mara.get("trace", "t-00000000"))),
+        ):
+            outcome = call().get("outcome", "?")
+            doors.append((f"{name}() as {persona}", outcome, outcome == "refused"))
+    outcome = clients["risk"].audit_subject("M-2022-0117").get("outcome", "?")
+    doors.append(("audit_subject() as risk", outcome, outcome == "shown"))
+
     result = Result(disclosure=disclosure, cases=cases, doors=doors)
 
     # The record of all that must not leak what the barriers hide.
     traces = {c.trace: c.persona for c in cases if c.trace}
     all_tokens = {**tokens, **{p: [] for p in REFUSED_IDENTITIES}}
+    restricted = sorted(m for _, m in rules)
     for record in read(cfg.audit_path):
+        # Risk may read everything; the record of Risk reading must not become a
+        # directory of the walls. What Risk asked about is hashed.
+        if record.get("request", "").startswith("audit.") and record.get("persona") == "risk":
+            result.audit_records += 1
+            line = json.dumps(record)
+            for ref in restricted:
+                if ref in line:
+                    result.audit_leaks.append(f"{record['trace']} (risk's own read): {ref}")
+            continue
         persona = traces.get(record.get("trace"))
         if persona is None:
             continue
@@ -296,7 +343,7 @@ def run(cfg, console) -> Result:
 
 
 def render(result: Result) -> str:
-    cases = [c for c in result.cases if c.shape not in ("identity", "session")]
+    cases = [c for c in result.cases if c.shape not in ("identity", "session", "term")]
     denied = [c for c in cases if c.denied]
     lines = [
         "# Barrier suite",
@@ -317,7 +364,8 @@ def render(result: Result) -> str:
         f"| … where the persona is denied the matter | {len(denied)} |",
         f"| **leaked** | **{len(result.leaks)}** |",
         f"| wrong refusals (including over-refusals) | {len(result.problems)} |",
-        f"| permit doors behaving | {sum(ok for *_, ok in result.doors)} / {len(result.doors)} |",
+        f"| doors behaving (permit, decision record) | "
+        f"{sum(ok for *_, ok in result.doors)} / {len(result.doors)} |",
         f"| audit records checked for clear-text denied identifiers | {result.audit_records} |",
         f"| … found | {len(result.audit_leaks)} |",
         f"| hash chain | {'intact' if result.chain_ok else 'BROKEN'} |",
@@ -356,10 +404,23 @@ def render(result: Result) -> str:
     for c in result.cases:
         if c.shape == "session":
             lines.append(f"| {c.persona} | {', '.join(c.leaked) or 'nothing'} |")
-    lines += ["", "## The permit", "", "| attempt | outcome | as it should be |", "|---|---|---|"]
+    lines += ["", "## The glossary path", "",
+              "`resolve_term(\"active client\")` and each reading of `CQ-09`, per persona —",
+              "scanned like any answer. `CQ-09` with no reading must be refused as ambiguous.", "",
+              "| persona | question | reading | outcome | leaked |", "|---|---|---|---|---|"]
+    for c in result.cases:
+        if c.shape == "term":
+            lines.append(f"| {c.persona} | {c.template} | {c.slots.get('reading', '—')} | "
+                         f"{c.outcome}{' ✗ ' + c.problem if c.problem else ''} | "
+                         f"{', '.join(c.leaked) or 'nothing'} |")
+    lines += ["", "## Doors", "",
+              "The permit, and the decision record — which only Risk & Compliance may read.",
+              "", "| attempt | outcome | as it should be |", "|---|---|---|"]
     for name, outcome, ok in result.doors:
         lines.append(f"| {name} | {outcome} | {'yes' if ok else '**no**'} |")
     lines += [
+        "",
+        "## Legend",
         "",
         "`answered-with-withheld` means rows came back and the persona was told how many were",
         "withheld, and under which rule — the `withheld-count` policy. A leak is any denied",

@@ -6,6 +6,10 @@ set -eu
 cd "$(dirname "$0")/.."
 
 [ -f .env ] || { cp .env.example .env; echo "wrote .env"; }
+# The resolver and the jobs write into the repo (reports/, build/, data/, audit/).
+# Run them as the host user, so what they write stays editable — and git-pullable —
+# on a Linux Docker host.
+grep -q '^TKG_UID=' .env || printf 'TKG_UID=%s\nTKG_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
 mkdir -p secrets audit build/opa mcp
 chmod 700 secrets
 

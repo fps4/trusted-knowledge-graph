@@ -49,5 +49,7 @@ extend-immutable-calls = ["typer.Option", "typer.Argument"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Tests run in the image as the host user, who cannot write /app. No cache needed.
+addopts = "-p no:cacheprovider"
 # rdflib drives an older pyparsing API. Upstream noise, not ours.
 filterwarnings = ["ignore::DeprecationWarning:rdflib.*"]

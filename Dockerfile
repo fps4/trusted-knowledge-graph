@@ -14,6 +14,7 @@ RUN mkdir -p src/tkg && echo '__version__ = "0"' > src/tkg/__init__.py \
 COPY src ./src
 COPY ontology ./ontology
 COPY mappings ./mappings
+COPY vocab ./vocab
 COPY config ./config
 COPY tests ./tests
 

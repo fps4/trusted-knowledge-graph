@@ -12,12 +12,12 @@ behind is. The estate is synthetic.
 | | |
 |---|---|
 | disclosure policy | `withheld-count` |
-| questions asked | 112 |
+| questions asked | 130 |
 | … where the persona is denied the matter | 56 |
 | **leaked** | **0** |
 | wrong refusals (including over-refusals) | 0 |
-| permit doors behaving | 3 / 3 |
-| audit records checked for clear-text denied identifiers | 109 |
+| doors behaving (permit, decision record) | 16 / 16 |
+| audit records checked for clear-text denied identifiers | 134 |
 | … found | 0 |
 | hash chain | intact |
 
@@ -60,13 +60,56 @@ behind is. The estate is synthetic.
 | sanne | nothing |
 | kim | nothing |
 
-## The permit
+## The glossary path
+
+`resolve_term("active client")` and each reading of `CQ-09`, per persona —
+scanned like any answer. `CQ-09` with no reading must be refused as ambiguous.
+
+| persona | question | reading | outcome | leaked |
+|---|---|---|---|---|
+| mara | resolve_term | — | resolved | nothing |
+| mara | CQ-09 | practice | answered | nothing |
+| mara | CQ-09 | finance | refused-aggregate | nothing |
+| mara | CQ-09 | bd | answered | nothing |
+| mara | CQ-09 | risk | refused-aggregate | nothing |
+| mara | CQ-09 | — | refused-ambiguous | nothing |
+| sanne | resolve_term | — | resolved | nothing |
+| sanne | CQ-09 | practice | answered | nothing |
+| sanne | CQ-09 | finance | refused-aggregate | nothing |
+| sanne | CQ-09 | bd | answered | nothing |
+| sanne | CQ-09 | risk | refused-aggregate | nothing |
+| sanne | CQ-09 | — | refused-ambiguous | nothing |
+| kim | resolve_term | — | resolved | nothing |
+| kim | CQ-09 | practice | answered | nothing |
+| kim | CQ-09 | finance | refused-aggregate | nothing |
+| kim | CQ-09 | bd | answered | nothing |
+| kim | CQ-09 | risk | refused-aggregate | nothing |
+| kim | CQ-09 | — | refused-ambiguous | nothing |
+
+## Doors
+
+The permit, and the decision record — which only Risk & Compliance may read.
 
 | attempt | outcome | as it should be |
 |---|---|---|
 | passages() with no permit | refused-permit | yes |
 | passages() with another person's permit | refused-permit | yes |
 | passages() with your own permit | no-index | yes |
+| audit_subject() as mara | refused | yes |
+| audit_person() as mara | refused | yes |
+| audit_trace() as mara | refused | yes |
+| audit_subject() as sanne | refused | yes |
+| audit_person() as sanne | refused | yes |
+| audit_trace() as sanne | refused | yes |
+| audit_subject() as kim | refused | yes |
+| audit_person() as kim | refused | yes |
+| audit_trace() as kim | refused | yes |
+| audit_subject() as percy-svc | refused | yes |
+| audit_person() as percy-svc | refused | yes |
+| audit_trace() as percy-svc | refused | yes |
+| audit_subject() as risk | shown | yes |
+
+## Legend
 
 `answered-with-withheld` means rows came back and the persona was told how many were
 withheld, and under which rule — the `withheld-count` policy. A leak is any denied

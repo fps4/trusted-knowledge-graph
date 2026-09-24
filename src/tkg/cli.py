@@ -28,7 +28,8 @@ from .ingest import taxonomies
 from .ingest.loader import Fuseki, push, union_graph, validate
 from .ingest.mapper import materialize
 from .ingest.seed import seed as seed_db
-from .semantic.templates import TEMPLATES
+from .semantic import glossary as glossary_mod
+from .semantic.templates import TEMPLATES, TERM_QUESTIONS
 
 app = typer.Typer(add_completion=False, help="Trusted knowledge graph lab")
 console = Console(width=int(os.environ.get("COLUMNS", "120")))
@@ -119,38 +120,54 @@ def load(skip_seed: bool = typer.Option(False, "--skip-seed")) -> None:
     if not skip_seed:
         est = estate_mod.build(config, cfg.seed)
         counts = seed_db(cfg.db_admin_dsn, est)
-        console.print("[green]1/5 seeded[/] " + " · ".join(f"{v} {k}" for k, v in counts.items()))
+        console.print("[green]1/6 seeded[/] " + " · ".join(f"{v} {k}" for k, v in counts.items()))
 
     spine = cfg.data_dir / "generated" / "spine.nq"
     n = materialize(cfg.sqlalchemy_url, cfg.mappings_dir, spine)
-    console.print(f"[green]2/5 mapped[/] {n} quads from R2RML over the live database")
+    console.print(f"[green]2/6 mapped[/] {n} quads from R2RML over the live database")
 
     told = cfg.data_dir / "generated" / "asserted.nq"
     facts = asserted_mod.load(cfg.config_dir / "asserted.yaml")
     try:
         n = asserted_mod.write(asserted_mod.build(facts), told)
     except asserted_mod.LineageError as exc:
-        console.print(f"[red]3/5 told facts refused — nothing was loaded[/] {exc}")
+        console.print(f"[red]3/6 told facts refused — nothing was loaded[/] {exc}")
         raise typer.Exit(1) from exc
-    console.print(f"[green]3/5 told facts[/] {len(facts)} facts, {n} quads, each with its lineage")
+    console.print(f"[green]3/6 told facts[/] {len(facts)} facts, {n} quads, each with its lineage")
+
+    terms, mapping = glossary_mod.load_config(cfg.config_dir)
+    glossary_ttl = glossary_mod.build_turtle(terms, mapping)
+    sali = cfg.vocab_dir / "sali-lmss-subset.ttl"
+    readings = sum(len(t.get("readings", [])) for t in terms["terms"])
+    console.print(
+        f"[green]4/6 glossary[/] {len(terms['terms'])} terms, {readings} readings, "
+        f"mapped to SALI LMSS @ {mapping['source']['commit'][:7]}"
+    )
 
     taxonomy_ttl = taxonomies.build_turtle(config)
-    data = union_graph([spine, told], [taxonomy_ttl, cfg.ontology_dir / "firm.ttl"])
+    data = union_graph(
+        [spine, told], [taxonomy_ttl, glossary_ttl, sali, cfg.ontology_dir / "firm.ttl"]
+    )
     result = validate(data, cfg.ontology_dir / "shapes.ttl", cfg.ontology_dir / "firm.ttl")
     if not result.conforms:
-        console.print("[red]4/5 shapes failed — nothing was loaded[/]")
+        console.print("[red]5/6 shapes failed — nothing was loaded[/]")
         console.print(Panel(result.report[:4000], title="SHACL report", border_style="red"))
         raise typer.Exit(1)
-    console.print(f"[green]4/5 shapes passed[/] {result.triples} triples validated")
+    console.print(f"[green]5/6 shapes passed[/] {result.triples} triples validated")
 
     fuseki = Fuseki(cfg.fuseki_url)
-    push(fuseki, [spine, told], cfg.ontology_dir / "firm.ttl", taxonomy_ttl)
+    push(fuseki, [spine, told], cfg.ontology_dir / "firm.ttl", taxonomy_ttl, glossary_ttl, sali)
     table = Table(show_header=True, header_style="dim")
     table.add_column("named graph")
     table.add_column("triples", justify="right")
-    for graph, count in fuseki.graphs():
-        table.add_row(iri.shorten(graph), f"{count:,}")
-    console.print(f"[green]5/5 loaded[/] {fuseki.count():,} triples")
+    graphs = fuseki.graphs()
+    told_graphs = [(g, c) for g, c in graphs if g.startswith(iri.G_ASSERTED)]
+    for graph, count in graphs:
+        if not graph.startswith(iri.G_ASSERTED):
+            table.add_row(iri.shorten(graph), f"{count:,}")
+    table.add_row(f"g:asserted/… ({len(told_graphs)} graphs)",
+                  f"{sum(c for _, c in told_graphs):,}")
+    console.print(f"[green]6/6 loaded[/] {fuseki.count():,} triples")
     console.print(table)
 
 
@@ -202,12 +219,15 @@ def cq() -> None:
     table.add_column("shape")
     table.add_column("slots")
     for template in TEMPLATES.values():
-        table.add_row(
-            template.id,
-            template.question,
-            template.kind,
-            ", ".join(s.name for s in template.slots) or "—",
-        )
+        if template.listed:
+            table.add_row(
+                template.id,
+                template.question,
+                template.kind,
+                ", ".join(s.name for s in template.slots) or "—",
+            )
+    for q in TERM_QUESTIONS.values():
+        table.add_row(q.id, q.question, f"term: {q.term}", "reading")
     console.print(table)
 
 
@@ -237,8 +257,16 @@ def render(response: dict, show_rows: int = 25) -> None:
     console.print(f"{head}  [{style}]{outcome}[/]  [dim]{response.get('trace', '')}[/]")
     if response.get("question"):
         console.print(f"[dim]{response['question']}[/]")
+    if response.get("route"):
+        r = response["route"]
+        console.print(f"[dim]route {r['route']} — {r['reason']}[/]")
+    for t in response.get("terms") or []:
+        reading = f" · reading [bold]{t['reading']}[/]" if t.get("reading") else ""
+        console.print(f"[dim]term[/] {t['term']}{reading} [dim]· owner {t['owner']}[/]")
     if response.get("reason"):
         console.print(f"[{style}]{response['reason']}[/]")
+    if response.get("readings"):
+        _readings_table(response["readings"])
 
     rows = response.get("rows") or []
     if rows:
@@ -276,6 +304,44 @@ def render(response: dict, show_rows: int = 25) -> None:
     console.print()
 
 
+def _readings_table(readings: list[dict]) -> None:
+    table = Table(show_header=True, header_style="dim")
+    for col in ("reading", "owner", "definition", "count"):
+        table.add_column(col)
+    for r in readings:
+        count = r.get("count")
+        if count is None and r.get("outcome"):
+            count = f"[red]{r['outcome']}[/]"
+        elif r.get("scope"):
+            count = f"{count} [yellow](what you can see)[/]"
+        shown = str(count if count is not None else "—")
+        table.add_row(r["key"], r["owner"], r["definition"], shown)
+    console.print(table)
+
+
+def render_term(response: dict) -> None:
+    outcome = response.get("outcome")
+    console.print(
+        f"[bold]{response.get('persona', '')}[/]  resolve_term  "
+        f"[green]{outcome}[/]  [dim]{response.get('trace', '')}[/]"
+    )
+    if outcome == "resolved":
+        console.print(f"[bold]{response['label']}[/] — {response['definition']} "
+                      f"[dim](owner: {response['owner']})[/]")
+        if response.get("readings"):
+            _readings_table(response["readings"])
+            console.print(f"[dim]on_ambiguous: {response['on_ambiguous']} — a question that "
+                          f"names it without choosing a reading is refused[/]")
+        if response.get("means"):
+            console.print("means " + " · ".join(f"{k} = {v}" for k, v in response["means"].items()))
+    else:
+        for c in response.get("concepts", []):
+            maps = "; ".join(f"{m['relation']} {m['label'] or m['to']}" for m in c["mappings"])
+            console.print(f"{c['concept']} [dim]{c['scheme'] or ''}[/] {maps}")
+        console.print(f"[dim]{response.get('note') or response.get('reason', '')}[/]")
+    console.print()
+
+
 def _explain_panel(response: dict) -> None:
     blocked = response.get("blocked", {})
     console.print(
@@ -305,9 +371,57 @@ def ask(
     template_id: str = typer.Argument(..., help="A competency question id, e.g. CQ-02"),
     as_: str = typer.Option("mara", "--as", help="The persona asking"),
     set_: list[str] = typer.Option(None, "--set", "-s", help="slot=value, repeatable"),
+    term: list[str] = typer.Option(None, "--term", "-t", help="glossary term id relied on"),
 ) -> None:
     """Ask one competency question as a persona, through the resolver."""
-    render(_client(as_).ask(template_id, _slots(set_)))
+    render(_client(as_).ask(template_id, _slots(set_), term or []))
+
+
+@app.command("term")
+def term_cmd(
+    text: str = typer.Argument(..., help='A business word, e.g. "active client"'),
+    as_: str = typer.Option("mara", "--as", help="The persona asking"),
+) -> None:
+    """What a business word means here, who owns that, and — per reading — the count."""
+    render_term(_client(as_).resolve_term(text))
+
+
+audit_app = typer.Typer(help="The decision record, read as Risk & Compliance")
+app.add_typer(audit_app, name="audit")
+
+
+def _audit_render(response: dict) -> None:
+    import json as _json
+
+    if response.get("outcome") != "shown":
+        render({**response, "template": "audit"})
+        return
+    body = {k: v for k, v in response.items() if k not in ("trace", "outcome")}
+    console.print(f"[green]shown[/] [dim]{response['trace']} — this read is in the chain too[/]")
+    console.print_json(_json.dumps(body))
+
+
+@audit_app.command("subject")
+def audit_subject(matter: str, as_: str = typer.Option("risk", "--as")) -> None:
+    """Who has ever been shown anything derived from this matter?"""
+    _audit_render(_client(as_).audit_subject(matter))
+
+
+@audit_app.command("person")
+def audit_person(
+    person: str,
+    since: str = typer.Option(None, help="ISO time"),
+    until: str = typer.Option(None, help="ISO time"),
+    as_: str = typer.Option("risk", "--as"),
+) -> None:
+    """What did this person see, between these times?"""
+    _audit_render(_client(as_).audit_person(person, since, until))
+
+
+@audit_app.command("trace")
+def audit_trace(trace: str, as_: str = typer.Option("risk", "--as")) -> None:
+    """Why was this trace decided as it was? The stored record, identifiers resolved."""
+    _audit_render(_client(as_).audit_trace(trace))
 
 
 @app.command()
@@ -323,39 +437,102 @@ def explain(
     _explain_panel(response)
 
 
-# The M1 scenes, in the order of the demo script: (persona, template, slots, caption).
+# The scenes, in the order of the demo script: (persona, template, slots, terms, caption).
 DEMO = [
-    ("mara", "CQ-02", {}, "Mara, partner: AFM investigations for Dutch fund managers since 2021"),
-    ("sanne", "CQ-02", {}, "Sanne, screened by B-03: the identical question"),
-    ("sanne", "CQ-06", {"matter": "M-2022-0117"}, "Sanne: who led M-2022-0117?"),
-    ("sanne", "CQ-07", {}, "Sanne: who has the most AFM investigation experience? (aggregate)"),
-    ("sanne", "CQ-08", {"person": "P-0101"},
-     "Sanne: what expertise is recorded for Mara? (facts that name no matter)"),
-    ("kim", "CQ-06", {"matter": "M-2023-0018"}, "Kim: a need-to-know matter she is not on"),
-    ("percy-svc", "CQ-02", {}, "The firm's assistant, calling as itself"),
+    ("mara", "CQ-02", {}, ["fund-manager", "afm-investigation"],
+     "Scene 2 · Mara, partner: AFM investigations for Dutch fund managers since 2021"),
+    ("sanne", "CQ-02", {}, ["fund-manager", "afm-investigation"],
+     "Scene 4 · Sanne, screened by B-03: the identical question"),
+    ("sanne", "CQ-06", {"matter": "M-2022-0117"}, [], "Scene 4 · Sanne: who led M-2022-0117?"),
+    ("sanne", "CQ-07", {}, [],
+     "Scene 4 · Sanne: who has the most AFM investigation experience? (aggregate)"),
+    ("sanne", "CQ-08", {"person": "P-0101"}, [],
+     "Scene 4 · Sanne: what expertise is recorded for Mara? (facts that name no matter)"),
+    ("kim", "CQ-06", {"matter": "M-2023-0018"}, [], "Kim: a need-to-know matter she is not on"),
+    ("percy-svc", "CQ-02", {}, [], "The firm's assistant, calling as itself"),
 ]
 
 
 @app.command()
 def demo() -> None:
-    """Run the M1 scenes through the resolver, as the personas, and print the transcripts."""
+    """Run the scenes through the resolver, as the personas, and print the transcripts."""
+    from datetime import UTC, datetime
+
+    from rich.markdown import Markdown
+
+    from .eval.reports import audit_md
+
+    started = datetime.now(UTC).isoformat(timespec="seconds")
     traces: dict[str, str] = {}
-    console.rule("[bold]Who is asking")
+    console.rule("[bold]Scene 1 · Who is asking")
     for persona in ("mara", "sanne"):
         me = _client(persona).whoami()
         console.print(f"[bold]{me['persona']}[/]  {me['principal']}  [dim]{me['about']}[/]")
     console.print()
-    for persona, template_id, slots, caption in DEMO:
+    for persona, template_id, slots, terms, caption in DEMO[:1]:
         console.rule(f"[bold]{caption}")
-        response = _client(persona).ask(template_id, slots)
+        render(_client(persona).ask(template_id, slots, terms))
+
+    console.rule('[bold]Scene 3 · Why that was the right answer — resolve_term("active client")')
+    render_term(_client("mara").resolve_term("active client"))
+    console.rule("[bold]Scene 3 · …and a question that does not say which")
+    render(_client("mara").ask("CQ-09", {}))
+    render(_client("mara").ask("CQ-09", {"reading": "finance"}))
+
+    for persona, template_id, slots, terms, caption in DEMO[1:]:
+        console.rule(f"[bold]{caption}")
+        response = _client(persona).ask(template_id, slots, terms)
         render(response)
         traces[f"{persona}:{template_id}"] = response.get("trace", "")
 
     console.rule("[bold]Sanne asks why — answered from the stored record, not from memory")
     _explain_panel(_client("sanne").explain(traces["sanne:CQ-06"]))
-    console.rule(
-        "[dim]M1: every request above wrote one record to a hash-chained log — make verify-audit"
+
+    console.rule("[bold]Scene 7 · The record — a third session, as Risk & Compliance")
+    risk = _client("risk")
+    refused = _client("sanne").audit_subject("M-2022-0117")
+    console.print(
+        f"[dim]sanne asks the record who saw M-2022-0117:[/] [red]{refused['outcome']}[/] "
+        f"[dim]under {refused['explain']['rules'][0]['rule']} — and that attempt is recorded[/]"
     )
+    subject = risk.audit_subject("M-2022-0117")
+    person = risk.audit_person("sanne", since=started)
+    trace = risk.audit_trace(traces["sanne:CQ-06"])
+    console.print(Markdown(audit_md(subject, person, trace,
+                                    [subject["trace"], person["trace"], trace["trace"]])))
+    console.rule(
+        "[dim]every request above wrote one record to a hash-chained log — make verify-audit"
+    )
+
+
+@app.command("glossary-report")
+def glossary_report(as_: str = typer.Option("kim", "--as")) -> None:
+    """reports/glossary.md — the terms, the readings with their counts, SALI, relations."""
+    from .eval.reports import glossary_md
+
+    cfg = _settings()
+    active = _client(as_).resolve_term("active client")
+    out = cfg.reports_dir / "glossary.md"
+    out.write_text(glossary_md(active, cfg.config_dir, cfg.vocab_dir, as_), encoding="utf-8")
+    console.print("[green]→ reports/glossary.md[/]")
+
+
+@app.command("audit-report")
+def audit_report() -> None:
+    """reports/audit.md — the three questions, asked as Risk over the last demo run."""
+    from .eval.reports import audit_md
+
+    cfg = _settings()
+    risk = _client("risk")
+    subject = risk.audit_subject("M-2022-0117")
+    person = risk.audit_person("sanne")
+    refusals = [r for r in person.get("requests", [])
+                if r["template"] == "CQ-06" and r["outcome"] == "refused"]
+    trace = risk.audit_trace(refusals[-1]["trace"]) if refusals else None
+    reads = [subject["trace"], person["trace"]] + ([trace["trace"]] if trace else [])
+    out = cfg.reports_dir / "audit.md"
+    out.write_text(audit_md(subject, person, trace, reads), encoding="utf-8")
+    console.print("[green]→ reports/audit.md[/]")
 
 
 @app.command("verify-audit")
