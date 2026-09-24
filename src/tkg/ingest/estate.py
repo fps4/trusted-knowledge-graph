@@ -98,6 +98,14 @@ class Restriction:
 
 
 @dataclass
+class Invoice:
+    invoice_ref: str
+    matter_ref: str
+    invoiced_on: date
+    amount_eur: int
+
+
+@dataclass
 class Estate:
     people: list[Person] = field(default_factory=list)
     clients: list[Client] = field(default_factory=list)
@@ -106,6 +114,7 @@ class Estate:
     accounts: list[Account] = field(default_factory=list)
     contacts: list[Contact] = field(default_factory=list)
     restrictions: list[Restriction] = field(default_factory=list)
+    invoices: list[Invoice] = field(default_factory=list)
 
 
 def _as_date(value) -> date | None:
@@ -362,4 +371,22 @@ def build(cfg: dict, seed: int) -> Estate:  # noqa: C901 - a generator reads bet
                 set_by="Risk",
             )
         )
+
+    # ── billing: what Finance means by "active" ──────────────────────────────
+    # Drawn last, so adding it changed nothing generated before it.
+    as_of = _as_date(cfg["as_of"])
+    lo, hi = vol["invoice_every_days"]
+    for m in est.matters:
+        end = min(m.closed_on or as_of, as_of)
+        day = m.opened_on + timedelta(days=rng.randint(lo, hi))
+        while day <= end:
+            est.invoices.append(
+                Invoice(
+                    invoice_ref=f"I-{len(est.invoices) + 1:05d}",
+                    matter_ref=m.matter_ref,
+                    invoiced_on=day,
+                    amount_eur=rng.randrange(2_000, 90_000, 500),
+                )
+            )
+            day += timedelta(days=rng.randint(lo, hi))
     return est

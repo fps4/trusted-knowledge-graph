@@ -93,3 +93,21 @@
     rr:predicateObjectMap [ rr:predicate ssf:setBy           ; rr:objectMap [ rr:column "set_by" ] ] ;
     rr:predicateObjectMap [ rr:predicate ssf:setOn ;
         rr:objectMap [ rr:column "set_on" ; rr:datatype xsd:date ] ] .
+
+# Billing. Mapped so Finance's reading of "active client" rests on invoices, not
+# on a proxy for them.
+<#InvoiceMap> a rr:TriplesMap ;
+    rr:logicalTable [ rr:sqlQuery """
+        SELECT invoice_ref, matter_ref, invoiced_on, amount_eur FROM pms.invoice
+    """ ] ;
+    rr:subjectMap [
+        rr:template "https://lab.fps4.dev/id/invoice/{invoice_ref}" ;
+        rr:class ssf:Invoice ;
+        rr:graphMap [ rr:constant <https://lab.fps4.dev/graph/spine/pms> ]
+    ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:invoiceMatter ;
+        rr:objectMap [ rr:template "https://lab.fps4.dev/id/matter/{matter_ref}" ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:invoicedOn ;
+        rr:objectMap [ rr:column "invoiced_on" ; rr:datatype xsd:date ] ] ;
+    rr:predicateObjectMap [ rr:predicate ssf:amountEur ;
+        rr:objectMap [ rr:column "amount_eur" ; rr:datatype xsd:integer ] ] .
