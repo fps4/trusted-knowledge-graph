@@ -1,0 +1,43 @@
+# Who can ask. A persona is a way into the lab, bound to one principal. What the
+# person *is* — grade, office, practice area — comes from HR at compile time and
+# is not repeated here, so this file cannot drift from the system of record.
+#
+# Each persona gets a key in secrets/ from `make init`, and its MCP container is
+# started with that key and no other. See docs/decisions/0011.
+#
+# `about` is shown to the persona by whoami(), so it says who someone is and
+# never what they are walled from. The first Claude Code session run against M1
+# found an `about` that named the matter Sanne is screened from — the barrier
+# suite scans whoami() now. Which rule covers whom lives in barriers.yaml.
+
+personas:
+  - id: mara
+    principal: mara.devries@lab.invalid
+    kind: person
+    person_ref: P-0101
+    about: Partner, Asset Management, Amsterdam.
+
+  - id: sanne
+    principal: sanne.okonjo@lab.invalid
+    kind: person
+    person_ref: P-0102
+    # Screened from M-2022-0117 by B-03 — which she learns only by asking.
+    about: Associate, Financial Institutions, London.
+
+  - id: kim
+    principal: kim.bakker@lab.invalid
+    kind: person
+    person_ref: P-0103
+    # Not on the need-to-know matter B-11 covers, and screened by name under B-14.
+    about: Knowledge lawyer, Asset Management, Amsterdam.
+
+  - id: percy-svc
+    principal: percy-svc@lab.invalid
+    kind: service
+    about: The firm's assistant calling as itself. Exists to be refused.
+
+  - id: risk
+    principal: risk@lab.invalid
+    kind: person
+    role: risk
+    about: Risk & Compliance. Reads the decision record, sees no matter content. Tools arrive in M2.

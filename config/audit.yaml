@@ -1,0 +1,32 @@
+# The decision record: what is kept, what is hashed, who may read it, and for how
+# long. Reviewable as data, beside barriers.yaml, because a record of who asked
+# what is personal data about the firm's own lawyers.
+# See docs/decisions/0012 and 0013.
+
+path: audit/decisions.jsonl
+
+record:
+  - trace, ts, sub, persona           # who — the person, never the application
+  - request, template, slots          # enough to re-run the question
+  - route                             # which path, and why
+  - considered                        # every matter and graph reached before any decision
+  - decisions                         # allow or deny per item, the rule, how it was reached
+  - returned                          # what was shown, and the permit minted
+  - outcome
+  - policy_version, pipeline_version
+  - salt_id, prev_hash, hash          # the chain
+
+# Written as salted hashes in every field, never in the clear.
+hashed: [denied matters, denied derived graphs]
+
+# Not written at all.
+not_recorded:
+  - free text                         # a question in the lawyer's words can name a client
+  - composed answer text              # citations only; the text is a setting for the firm
+
+readers: [risk]                       # from M2; and risk's own reads go into the same chain
+
+# A default with a reason, not a disk setting. Six years matches the limitation
+# period for most claims a professional-indemnity question would turn on. The
+# firm's own answer is a question for its risk function.
+retention_days: 2192

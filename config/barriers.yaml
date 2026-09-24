@@ -1,0 +1,98 @@
+# The only file in this repo that may encode an access rule. It compiles to the
+# data OPA evaluates (build/opa/data.json), and the compiler refuses to write it
+# if these rules and the practice-management system's restriction records
+# disagree. See docs/decisions/0007-the-rule-lives-in-barriers-yaml.md
+#
+# Every name, matter and rule below is invented.
+
+version: 2026-09-25
+owner: Head of Risk & Compliance
+
+# What a person is told when something is withheld from them. A policy decision
+# with an owner, not a UI option, and the caller cannot change it. Both modes are
+# implemented; the demo runs withheld-count. See docs/decisions/0010.
+#   withheld-count  refusals and withheld counts carry the rule that decided them
+#   silent          say nothing; aggregates are computed over what you can see,
+#                   and labelled as such
+disclosure: withheld-count
+
+# Rules about who is asking, before any matter is considered.
+baseline:
+  - id: ID-01
+    rule: An unknown principal sees nothing.
+    owner: Head of Risk & Compliance
+    set_on: 2026-09-25
+  - id: ID-02
+    rule: A service identity sees nothing. Decisions are made as a person, never as the application.
+    owner: Head of Risk & Compliance
+    set_on: 2026-09-25
+  - id: ID-03
+    rule: Risk reads the decision record, not matter content.
+    owner: Head of Risk & Compliance
+    set_on: 2026-09-25
+  - id: LN-01
+    rule: A derived graph that cannot say what it was derived from is shown to no one.
+    owner: Head of Risk & Compliance
+    set_on: 2026-09-25
+
+# Rules about matters. Each one must match a row in pms.matter_restriction by
+# rule id, matter and kind.
+#   barrier       default allow; the screened are denied
+#   need-to-know  default deny; only insiders see it
+# insiders.matter_team resolves against pms.matter_team at compile time — the
+# team is referenced, never copied. Insiders win over a group screen; a named
+# person who is both inside and screened is refused by the compiler.
+rules:
+  - id: B-03
+    matter: M-2022-0117
+    kind: barrier
+    insiders: {matter_team: true}
+    screened:
+      people: [P-0102]
+      practice_areas: [financial-institutions]
+    set_on: 2022-03-14
+    set_by: Risk
+    owner: Head of Risk & Compliance
+    review: every 12 months
+
+  - id: B-11
+    matter: M-2023-0018
+    kind: need-to-know
+    insiders: {matter_team: true}
+    set_on: 2023-11-27
+    set_by: Risk
+    owner: Head of Risk & Compliance
+    review: every 6 months
+
+  - id: B-12
+    matter: M-2023-0033
+    kind: barrier
+    insiders: {matter_team: true}
+    screened:
+      offices: [Amsterdam]
+    set_on: 2023-08-02
+    set_by: Risk
+    owner: Head of Risk & Compliance
+    review: every 12 months
+
+  - id: B-13
+    matter: M-2020-0034
+    kind: barrier
+    insiders: {matter_team: true}
+    screened:
+      practice_areas: [financial-institutions]
+    set_on: 2020-02-05
+    set_by: Risk
+    owner: Head of Risk & Compliance
+    review: every 12 months
+
+  - id: B-14
+    matter: M-2020-0032
+    kind: barrier
+    insiders: {matter_team: true}
+    screened:
+      people: [P-0103]
+    set_on: 2020-07-20
+    set_by: Risk
+    owner: Head of Risk & Compliance
+    review: every 12 months
