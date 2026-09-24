@@ -63,3 +63,10 @@ def test_the_crm_has_not_heard_of_every_client(cfg):
 def test_five_matters_sit_behind_a_barrier(cfg):
     est = estate_mod.build(cfg, 20260924)
     assert len({r.matter_ref for r in est.restrictions}) == 5
+
+
+def test_both_kinds_of_rule_are_in_the_system_of_record(cfg):
+    est = estate_mod.build(cfg, 20260924)
+    kinds = {r.rule_id: r.kind for r in est.restrictions}
+    assert kinds["B-03"] == "barrier"
+    assert "need-to-know" in kinds.values()

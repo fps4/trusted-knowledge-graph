@@ -1,0 +1,205 @@
+{
+  "barriers": {
+    "baseline": {
+      "ID-01": {
+        "kind": "identity",
+        "owner": "Head of Risk & Compliance",
+        "rule": "ID-01",
+        "set_on": "2026-09-25",
+        "source": "config/barriers.yaml",
+        "text": "An unknown principal sees nothing."
+      },
+      "ID-02": {
+        "kind": "identity",
+        "owner": "Head of Risk & Compliance",
+        "rule": "ID-02",
+        "set_on": "2026-09-25",
+        "source": "config/barriers.yaml",
+        "text": "A service identity sees nothing. Decisions are made as a person, never as the application."
+      },
+      "ID-03": {
+        "kind": "identity",
+        "owner": "Head of Risk & Compliance",
+        "rule": "ID-03",
+        "set_on": "2026-09-25",
+        "source": "config/barriers.yaml",
+        "text": "Risk reads the decision record, not matter content."
+      },
+      "LN-01": {
+        "kind": "identity",
+        "owner": "Head of Risk & Compliance",
+        "rule": "LN-01",
+        "set_on": "2026-09-25",
+        "source": "config/barriers.yaml",
+        "text": "A derived graph that cannot say what it was derived from is shown to no one."
+      }
+    },
+    "disclosure": "withheld-count",
+    "policy_version": "2026-09-25+d92972c951f5",
+    "principals": {
+      "kim.bakker@lab.invalid": {
+        "kind": "person",
+        "office": "Amsterdam",
+        "person": "P-0103",
+        "persona": "kim",
+        "practice_area": "asset-management-funds",
+        "role": null
+      },
+      "mara.devries@lab.invalid": {
+        "kind": "person",
+        "office": "Amsterdam",
+        "person": "P-0101",
+        "persona": "mara",
+        "practice_area": "asset-management-funds",
+        "role": null
+      },
+      "percy-svc@lab.invalid": {
+        "kind": "service",
+        "office": null,
+        "person": null,
+        "persona": "percy-svc",
+        "practice_area": null,
+        "role": null
+      },
+      "risk@lab.invalid": {
+        "kind": "person",
+        "office": null,
+        "person": null,
+        "persona": "risk",
+        "practice_area": null,
+        "role": "risk"
+      },
+      "sanne.okonjo@lab.invalid": {
+        "kind": "person",
+        "office": "London",
+        "person": "P-0102",
+        "persona": "sanne",
+        "practice_area": "financial-institutions",
+        "role": null
+      }
+    },
+    "restrictions": {
+      "M-2020-0032": [
+        {
+          "insiders": [
+            "P-0209",
+            "P-0216",
+            "P-0232",
+            "P-0238",
+            "P-0245",
+            "P-0250"
+          ],
+          "kind": "barrier",
+          "owner": "Head of Risk & Compliance",
+          "review": "every 12 months",
+          "rule": "B-14",
+          "screened": {
+            "offices": [],
+            "people": [
+              "P-0103"
+            ],
+            "practice_areas": []
+          },
+          "set_by": "Risk",
+          "set_on": "2020-07-20",
+          "source": "config/barriers.yaml"
+        }
+      ],
+      "M-2020-0034": [
+        {
+          "insiders": [
+            "P-0205",
+            "P-0210"
+          ],
+          "kind": "barrier",
+          "owner": "Head of Risk & Compliance",
+          "review": "every 12 months",
+          "rule": "B-13",
+          "screened": {
+            "offices": [],
+            "people": [],
+            "practice_areas": [
+              "financial-institutions"
+            ]
+          },
+          "set_by": "Risk",
+          "set_on": "2020-02-05",
+          "source": "config/barriers.yaml"
+        }
+      ],
+      "M-2022-0117": [
+        {
+          "insiders": [
+            "P-0101",
+            "P-0231",
+            "P-0233",
+            "P-0236"
+          ],
+          "kind": "barrier",
+          "owner": "Head of Risk & Compliance",
+          "review": "every 12 months",
+          "rule": "B-03",
+          "screened": {
+            "offices": [],
+            "people": [
+              "P-0102"
+            ],
+            "practice_areas": [
+              "financial-institutions"
+            ]
+          },
+          "set_by": "Risk",
+          "set_on": "2022-03-14",
+          "source": "config/barriers.yaml"
+        }
+      ],
+      "M-2023-0018": [
+        {
+          "insiders": [
+            "P-0207",
+            "P-0211",
+            "P-0212",
+            "P-0245",
+            "P-0247"
+          ],
+          "kind": "need-to-know",
+          "owner": "Head of Risk & Compliance",
+          "review": "every 6 months",
+          "rule": "B-11",
+          "screened": {
+            "offices": [],
+            "people": [],
+            "practice_areas": []
+          },
+          "set_by": "Risk",
+          "set_on": "2023-11-27",
+          "source": "config/barriers.yaml"
+        }
+      ],
+      "M-2023-0033": [
+        {
+          "insiders": [
+            "P-0209",
+            "P-0240",
+            "P-0244"
+          ],
+          "kind": "barrier",
+          "owner": "Head of Risk & Compliance",
+          "review": "every 12 months",
+          "rule": "B-12",
+          "screened": {
+            "offices": [
+              "Amsterdam"
+            ],
+            "people": [],
+            "practice_areas": []
+          },
+          "set_by": "Risk",
+          "set_on": "2023-08-02",
+          "source": "config/barriers.yaml"
+        }
+      ]
+    },
+    "source": "config/barriers.yaml"
+  }
+}

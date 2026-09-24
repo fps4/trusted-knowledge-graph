@@ -1,0 +1,64 @@
+# The capture step: facts told by a named person, with no document behind them —
+# the outcome a partner knows and no system recorded. Each fact is loaded into
+# its own graph, g:asserted/<by>/<told_on>, with its lineage in g:prov. (Not
+# `on:` — YAML 1.1 reads that key as the boolean true.)
+#
+# Lineage is what makes these facts subject to barriers. A graph derived from a
+# restricted matter is restricted; a graph derived from *that* graph is too.
+# See docs/decisions/0008 and 0014.
+
+facts:
+  - id: F-0001
+    by: P-0101
+    told_on: 2022-03-04
+    subject: matter/M-2021-0043
+    predicate: hadOutcome
+    object: outcome/no-action
+    confidence: 1.0
+    review: confirmed
+    derived_from: [matter/M-2021-0043]
+
+  - id: F-0002
+    by: P-0101
+    told_on: 2023-07-05
+    subject: matter/M-2022-0117
+    predicate: hadOutcome
+    object: outcome/settled-fine
+    confidence: 1.0
+    review: confirmed
+    derived_from: [matter/M-2022-0117]
+
+  # Told, not yet confirmed. It is returned, and it says so.
+  - id: F-0003
+    by: P-0221
+    told_on: 2024-07-22
+    subject: matter/M-2022-0022
+    predicate: hadOutcome
+    object: outcome/formal-warning
+    confidence: 0.6
+    review: unconfirmed
+    derived_from: [matter/M-2022-0022]
+
+  # M-2024-0286 is still open and has no outcome fact. On purpose.
+
+  # Facts about a person, derived from facts about matters. Nothing on these two
+  # names a matter — which is why lineage, not the subject, has to decide them.
+  - id: F-0004
+    by: P-0103
+    told_on: 2022-03-10
+    subject: person/P-0101
+    predicate: hasExpertise
+    object: expertise/afm-market-abuse
+    confidence: 0.9
+    review: confirmed
+    derived_from: [asserted/P-0101/2022-03-04]
+
+  - id: F-0005
+    by: P-0103
+    told_on: 2023-09-12
+    subject: person/P-0101
+    predicate: hasExpertise
+    object: expertise/afm-settlement
+    confidence: 0.9
+    review: confirmed
+    derived_from: [asserted/P-0101/2023-07-05]

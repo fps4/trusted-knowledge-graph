@@ -27,6 +27,17 @@ matter_types:
   - {id: commercial-litigation,    label: "Commercial litigation",    practice_bias: [financial-institutions, tmt]}
   - {id: regulatory-advisory,      label: "Regulatory advisory",      practice_bias: [healthcare-life-sciences, asset-management-funds]}
 
+# Outcomes and areas of expertise are vocabularies, not free text: a fact points
+# at a concept, so "settled" is one thing and not five spellings of it.
+outcomes:
+  - {id: no-action,      label: "Closed with no action"}
+  - {id: settled-fine,   label: "Settled — administrative fine"}
+  - {id: formal-warning, label: "Formal warning"}
+
+expertise:
+  - {id: afm-market-abuse, label: "AFM market-abuse investigations"}
+  - {id: afm-settlement,   label: "Negotiating AFM settlements"}
+
 client_types:
   - {id: fund-manager,       label: "Fund manager"}
   - {id: bank,               label: "Bank"}
@@ -49,6 +60,9 @@ mess:
   crm_name_drift: 0.22         # share of CRM accounts spelled differently from PMS
   crm_missing_share: 0.10      # clients with no CRM account at all
   shared_surname_pairs: 4      # lawyers who share a family name with a colleague
+  # Kinds for the generated restrictions, in order. One need-to-know matter, so
+  # the lab covers both kinds of rule a firm runs. See docs/decisions/0007.
+  restriction_kinds: [need-to-know, barrier, barrier, barrier]
 
 name_pools:
   given: [Mara, Sanne, Kim, Joost, Pieter, Anouk, Willem, Fenna, Bram, Lotte, Daan, Sofie,

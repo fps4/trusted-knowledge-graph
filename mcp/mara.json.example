@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "tkg-mara": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--network", "tkg_edge",
+               "-v", "/absolute/path/to/trusted-knowledge-graph/secrets/mara.key:/run/secrets/persona.key:ro",
+               "tkg-mcp:latest", "--as", "mara"]
+    }
+  }
+}

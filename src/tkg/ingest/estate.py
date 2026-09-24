@@ -350,13 +350,14 @@ def build(cfg: dict, seed: int) -> Estate:  # noqa: C901 - a generator reads bet
     # ── restrictions: five matters behind a barrier, as the spec says ────────
     already = {r.matter_ref for r in est.restrictions}
     unrestricted = [m for m in est.matters if m.matter_ref not in already]
+    kinds = list(cfg["mess"].get("restriction_kinds") or [])
     while len(est.restrictions) < 5:
         m = rng.choice(unrestricted)
         est.restrictions.append(
             Restriction(
                 matter_ref=m.matter_ref,
                 rule_id=f"B-{len(est.restrictions) + 10:02d}",
-                kind="barrier",
+                kind=kinds.pop(0) if kinds else "barrier",
                 set_on=m.opened_on + timedelta(days=rng.randint(1, 30)),
                 set_by="Risk",
             )

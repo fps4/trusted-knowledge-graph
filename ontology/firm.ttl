@@ -4,6 +4,7 @@
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix dct:  <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
 
 <https://lab.fps4.dev/firm/> a owl:Ontology ;
     rdfs:label "Firm ontology (lab)" ;
@@ -11,7 +12,7 @@
 ranges, and nothing that needs a reasoner to be useful. The vocabulary for areas of
 law and matter types is a SKOS scheme, not a class hierarchy, so that knowledge
 management can own it without a release. M2 maps that scheme onto SALI LMSS.""" ;
-    owl:versionInfo "0.1.0 — M0" .
+    owl:versionInfo "0.2.0 — M1" .
 
 # ── Classes ──────────────────────────────────────────────────────────────────
 ssf:Matter       a owl:Class ; rdfs:label "Matter" .
@@ -72,3 +73,27 @@ ssf:ruleId           a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs
 ssf:restrictionKind  a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
 ssf:setOn            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:date .
 ssf:setBy            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
+
+# ── Facts that are not rows (M1) ─────────────────────────────────────────────
+# A fact with a source, a confidence and a review state. Reified rather than
+# RDF-star so it works on any SPARQL 1.1 store: docs/decisions/0014.
+ssf:Fact a owl:Class ; rdfs:label "Fact" ;
+    rdfs:comment "A claim with a source, a confidence and a review state. It becomes knowledge when it is confirmed, and says so until it is." .
+ssf:factSubject   a owl:ObjectProperty   ; rdfs:domain ssf:Fact .
+ssf:factPredicate a owl:ObjectProperty   ; rdfs:domain ssf:Fact .
+ssf:factObject    a owl:ObjectProperty   ; rdfs:domain ssf:Fact .
+ssf:confidence    a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:decimal .
+ssf:reviewState   a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:string .
+ssf:assertedBy    a owl:ObjectProperty   ; rdfs:domain ssf:Fact ; rdfs:range ssf:Person .
+ssf:assertedOn    a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:date .
+
+# The predicates a Fact may carry. A Fact naming anything else is rejected.
+ssf:hadOutcome   a owl:ObjectProperty ; rdfs:label "had outcome" ;
+    rdfs:domain ssf:Matter ; rdfs:range skos:Concept .
+ssf:hasExpertise a owl:ObjectProperty ; rdfs:label "has expertise in" ;
+    rdfs:domain ssf:Person ; rdfs:range skos:Concept .
+
+# A named graph that was derived from something, described in g:prov. Its
+# lineage is what decides who may see it: docs/decisions/0008.
+ssf:DerivedGraph a owl:Class ; rdfs:label "Derived graph" ;
+    rdfs:subClassOf prov:Entity .

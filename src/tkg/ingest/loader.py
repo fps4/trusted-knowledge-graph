@@ -25,9 +25,10 @@ class ValidationResult:
     triples: int
 
 
-def union_graph(quads_path: Path, extra_turtle: list[Path | str]) -> Graph:
+def union_graph(quads_paths: list[Path], extra_turtle: list[Path | str]) -> Graph:
     ds = Dataset()
-    ds.parse(str(quads_path), format="nquads")
+    for quads_path in quads_paths:
+        ds.parse(str(quads_path), format="nquads")
     union = Graph()
     for _s, _p, _o, _g in ds.quads((None, None, None, None)):
         union.add((_s, _p, _o))
@@ -112,8 +113,11 @@ class Fuseki:
             return False
 
 
-def push(fuseki: Fuseki, quads_path: Path, ontology_path: Path, taxonomy_ttl: str) -> None:
+def push(
+    fuseki: Fuseki, quads_paths: list[Path], ontology_path: Path, taxonomy_ttl: str
+) -> None:
     fuseki.drop_all()
-    fuseki.load_quads(quads_path)
+    for quads_path in quads_paths:
+        fuseki.load_quads(quads_path)
     fuseki.load_turtle(ontology_path.read_text(), iri.G_ONTOLOGY)
     fuseki.load_turtle(taxonomy_ttl, iri.G_ONTOLOGY)

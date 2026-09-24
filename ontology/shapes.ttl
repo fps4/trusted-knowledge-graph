@@ -3,6 +3,7 @@
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
 
 # Shapes are the load contract. A load that violates them does not land, and the
 # violation report is the error message. See lab-architecture.md §3.
@@ -44,7 +45,7 @@ ssf:AssignmentShape a sh:NodeShape ;
 ssf:NoDocumentContentShape a sh:NodeShape ;
     rdfs:label "No document content in the graph" ;
     sh:targetClass ssf:Matter, ssf:Client, ssf:Person, ssf:Account, ssf:Contact,
-                   ssf:Assignment, ssf:Restriction ;
+                   ssf:Assignment, ssf:Restriction, ssf:Fact ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "Literal longer than 500 characters. The graph holds assertions and identifiers; document content stays in the document store." ;
@@ -57,3 +58,26 @@ ssf:NoDocumentContentShape a sh:NodeShape ;
             }
         """ ;
     ] .
+
+# A fact is a claim until it carries a source, a confidence and a review state.
+ssf:FactShape a sh:NodeShape ;
+    sh:targetClass ssf:Fact ;
+    sh:property [ sh:path ssf:factSubject   ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path ssf:factPredicate ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( ssf:hadOutcome ssf:hasExpertise ) ;
+                  sh:message "A fact may only use a predicate the ontology defines for facts. An unknown predicate is rejected, not stored." ] ;
+    sh:property [ sh:path ssf:factObject    ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path ssf:confidence    ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ;
+                  sh:minInclusive 0 ; sh:maxInclusive 1 ] ;
+    sh:property [ sh:path ssf:reviewState   ; sh:minCount 1 ; sh:maxCount 1 ;
+                  sh:in ( "confirmed" "unconfirmed" "rejected" ) ] ;
+    sh:property [ sh:path ssf:assertedBy    ; sh:minCount 1 ; sh:maxCount 1 ; sh:class ssf:Person ;
+                  sh:message "A fact with no source is not knowledge." ] ;
+    sh:property [ sh:path ssf:assertedOn    ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+
+# A derived graph with no lineage would escape every barrier.
+ssf:DerivedGraphShape a sh:NodeShape ;
+    sh:targetClass ssf:DerivedGraph ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+                  sh:message "A derived graph must say what it was derived from, or no barrier can reach it." ] ;
+    sh:property [ sh:path prov:wasAttributedTo ; sh:minCount 1 ; sh:class ssf:Person ] .
