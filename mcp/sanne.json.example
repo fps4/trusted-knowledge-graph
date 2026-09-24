@@ -2,7 +2,7 @@
   "mcpServers": {
     "tkg-sanne": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--network", "tkg_edge",
+      "args": ["run", "-i", "--rm", "--network", "tkg_edge", "--user", "1000:1000",
                "-v", "/absolute/path/to/trusted-knowledge-graph/secrets/sanne.key:/run/secrets/persona.key:ro",
                "tkg-mcp:latest", "--as", "sanne"]
     }

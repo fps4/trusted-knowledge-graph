@@ -20,21 +20,7 @@ key() {
 PERSONAS=$(sed -n 's/^  - id: //p' config/people.yaml)
 for persona in $PERSONAS; do
   key "$persona.key"
-  # One file per persona: a single .mcp.json listing everyone would give one
-  # Claude session every persona's tools at once.
-  cat > "mcp/$persona.json" <<JSON
-{
-  "mcpServers": {
-    "tkg-$persona": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "--network", "tkg_edge",
-               "-v", "$PWD/secrets/$persona.key:/run/secrets/persona.key:ro",
-               "tkg-mcp:latest", "--as", "$persona"]
-    }
-  }
-}
-JSON
 done
 key resolver.key
 key audit.salt
-echo "personas: $(echo $PERSONAS | tr '\n' ' ')— mcp/<persona>.json"
+./scripts/mcp-configs.sh

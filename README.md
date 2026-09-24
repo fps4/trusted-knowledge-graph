@@ -152,9 +152,29 @@ the tampered one, because it agreed with itself.
 - **The mess is in the data, on purpose**: the same organisation spelled differently
   in the practice-management system and the CRM, and colleagues sharing a family name.
 
+## Running it on a Docker host
+
+The lab is deployed by hand to a Docker host, and nothing on it is exposed: every port
+binds to the host's loopback. There is no CI; the gate is a command.
+
+```sh
+ssh host 'git clone https://github.com/fps4/trusted-knowledge-graph && cd trusted-knowledge-graph \
+  && make build && make up-stores && make load && make policy'
+ssh -L 8480:127.0.0.1:8480 host      # the resolver, if you want it from here
+```
+
+Claude Code stays on your machine. The MCP container — and the persona's key — stay
+on the host, reached over ssh:
+
+```sh
+make mcp-configs HOST=host           # writes mcp/<persona>.json locally
+claude --strict-mcp-config --mcp-config mcp/sanne.json
+```
+
 ## Using it from Claude Code
 
-`make init` writes one MCP config per person. One session, one person:
+`make init` writes one MCP config per person, for a stack on the same machine. One
+session, one person:
 
 ```sh
 claude --strict-mcp-config --mcp-config mcp/sanne.json
