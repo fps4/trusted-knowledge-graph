@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture &amp; decisions — Trusted Knowledge Layer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="banner">Synthetic. No real firm, client, matter or person. Identity is asserted, not federated.</div>
+<nav class="top">
+  <a href="index.html">Start</a>
+  <a href="about.html">About the demo</a>
+  <a href="architecture.html" aria-current="page">Architecture &amp; decisions</a>
+  <a href="https://github.com/fps4/trusted-knowledge-graph">Source</a>
+</nav>
+<main>
+  <p class="eyebrow">Architecture &amp; decisions</p>
+  <h1>One resolver in front of a graph and an index</h1>
+  <p class="lead">
+    The graph is anchored to the firm's systems of record, not scraped out of text. Documents stay in
+    their store and their index. One resolver decides what a given person may see — before any evidence
+    is assembled — and writes down what it decided.
+  </p>
+
+  <h2>Components</h2>
+  <div class="flow">
+    <div class="lane">
+      <span class="label">Sources</span>
+      <div class="node"><b>Systems of record</b>Practice management, CRM, HR — Postgres, read-only role</div>
+      <div class="node"><b>Documents</b>~770 generated PDFs in MinIO, standing in for the DMS</div>
+      <div class="node"><b>Rules &amp; glossary</b><code>barriers.yaml</code>, <code>glossary.yaml</code> — owned data</div>
+    </div>
+    <div class="lane">
+      <span class="label">Build</span>
+      <div class="node"><b>R2RML mappings</b>morph-kgc turns tables into the graph's spine</div>
+      <div class="node"><b>Extraction</b>Claude via the Batches API; facts with confidence and review state</div>
+      <div class="node"><b>SHACL load gate</b>Nothing reaches the store without passing the shapes</div>
+      <div class="node"><b>Policy compile</b>Rules + lineage → OPA data and per-person MinIO policies</div>
+    </div>
+    <div class="lane">
+      <span class="label">Stores</span>
+      <div class="node"><b>Graph — Fuseki</b>Named graphs: spine, told facts, document facts, glossary, SALI, provenance</div>
+      <div class="node"><b>Index — OpenSearch</b>Passages with embeddings, tagged with every matter they depend on</div>
+      <div class="node"><b>Policy — OPA</b>Allow / deny per person, per matter, per graph</div>
+    </div>
+    <div class="lane">
+      <span class="label">Decide</span>
+      <div class="node key"><b>Resolver</b>FastAPI. Templates, glossary, router, decide-then-retrieve, compose or refuse</div>
+      <div class="node"><b>Decision record</b>One hash-chained line per request; denied ids salted-hashed</div>
+    </div>
+    <div class="lane">
+      <span class="label">Who asks</span>
+      <div class="node"><b>Demo screens</b>One Next.js container per person; chat via the Claude API</div>
+      <div class="node"><b>Claude Code over MCP</b>One container per person, holding only its own key</div>
+      <div class="node"><b>Risk</b>Reads the record — itself an access decision</div>
+    </div>
+  </div>
+  <p class="muted small">Two networks: the stores sit on an internal network; the screens and MCP containers reach only
+    the resolver. Every port binds to the host's loopback. Docker Compose, one host.</p>
+
+  <h2>The path of one question</h2>
+  <div class="steps seven">
+    <div class="step"><b>Plan</b>Pick the competency-question template; validate slots.</div>
+    <div class="step"><b>Terms</b>Resolve words in the glossary; an ambiguous one is refused with its readings.</div>
+    <div class="step"><b>Route</b>Graph, index, hybrid or refuse — with the reason.</div>
+    <div class="step"><b>Bind</b>Fill the template with validated values.</div>
+    <div class="step"><b>Decide</b>Candidates → lineage → OPA → bind the query to what was allowed.</div>
+    <div class="step"><b>Retrieve</b>Graph query; passages only under a permit, filtered inside the index query.</div>
+    <div class="step"><b>Compose or refuse</b>Answer with sources and withheld count, or refuse with grounds. Record either way.</div>
+  </div>
+
+  <h2>Decisions, in short</h2>
+  <p class="muted small">Each is an architecture decision record in the repository — context, options, consequences.</p>
+
+  <h3 style="margin-top:20px">Data and the graph</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0001-systems-of-record-are-a-database.md">0001</a></td>
+      <td>The spine is mapped from systems of record with R2RML</td><td>Who led what, for whom, when, is already known — extracting it from text is weaker</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0006-no-document-content-in-the-graph.md">0006</a></td>
+      <td>No document content in the graph — a shape fails any literal over 500 characters</td><td>The graph holds facts and links; text stays where its access is enforced</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0014-a-fact-is-a-reified-node.md">0014</a></td>
+      <td>A fact is a node with confidence, review state, who asserted it and when</td><td>A lawyer acts on a fact only when they can see how sure it is and where it came from</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0016-sali-lmss-by-mapping-not-adoption.md">0016</a></td>
+      <td>SALI LMSS by mapping, not adoption</td><td>The firm's practice areas are not SALI's; mapping keeps both honest</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0023-extraction-by-claude-through-batches.md">0023</a></td>
+      <td>Extraction by Claude through the Batches API, predicates as an enum</td><td>Structured output that can only say what the ontology allows; half price off the request path</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:24px">Access</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0007-the-rule-lives-in-barriers-yaml.md">0007</a></td>
+      <td>The rules live in one file, owned by Risk; barriers and need-to-know are both supported</td><td>One source of truth, compiled to OPA and to the document store</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0008-access-by-subject-on-the-spine-by-lineage-on-derived-graphs.md">0008</a></td>
+      <td>Spine facts decided by their matter; derived facts by lineage</td><td>A summary or extracted fact inherits the restrictions of everything it came from</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0009-decide-then-retrieve.md">0009</a></td>
+      <td>Decide, then retrieve</td><td>Filtering after retrieval means the evidence was already assembled; deciding first means it never is</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0010-disclosure-is-a-policy-setting.md">0010</a></td>
+      <td>Whether to say “something was withheld” is a policy setting</td><td>It is Risk's call, not the engineer's</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0021-the-document-store-enforces-its-own-access.md">0021</a></td>
+      <td>The document store enforces its own access, with per-person credentials</td><td>A stolen document id yields nothing; no second door around the resolver</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0028-a-document-inherits-the-matters-it-cites.md">0028</a></td>
+      <td>A document inherits the matters it cites</td><td>A note filed on an open matter that cites a walled one must be walled too</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0011-identity-is-asserted-not-federated.md">0011</a></td>
+      <td>Identity is asserted by a per-person key, not federated</td><td>The lab's one known weakness against the design, which uses on-behalf-of tokens</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:24px">Answering</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0004-query-templates-not-text-to-sparql.md">0004</a></td>
+      <td>Query templates per competency question, not text-to-SPARQL</td><td>Every query that can run is known, reviewed and decidable in advance</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0015-an-ambiguous-term-is-refused-not-resolved.md">0015</a></td>
+      <td>An ambiguous term is refused with its readings, not guessed</td><td>“Active client” has four owners; picking one silently is a confident wrong answer</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0017-the-router-decides-and-says-why.md">0017</a></td>
+      <td>The router picks graph, index, hybrid or refuse — and says why</td><td>The choice between facts and passages is visible and recorded, not implicit</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0022-the-index-is-pre-filtered-inside-the-query.md">0022</a></td>
+      <td>The index is filtered inside the query, not after it</td><td>Post-filtering top-k leaks through ranking and returns too few</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0019-aggregates-over-walls-an-open-decision.md">0019</a></td>
+      <td>Aggregates that touch a walled matter are refused <span class="tag">open</span></td><td>Safe, but firm-wide numbers are refused for nearly everyone — a choice for the firm, not the lab</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:24px">The record and the gate</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0012-one-chained-record-per-request.md">0012</a></td>
+      <td>One hash-chained record per request, answered or refused</td><td>“Who was shown what, and why” is answerable later, and tampering is evident</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0013-denied-identifiers-are-salted-hashes.md">0013</a></td>
+      <td>Denied identifiers are salted hashes in every field</td><td>The record of a refusal must not itself disclose the walled matter</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0018-reading-the-record-is-an-access-decision.md">0018</a></td>
+      <td>Reading the record is itself an access decision, and recorded</td><td>Only Risk may read it, and Risk's reads are on the chain too</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0025-the-eval-scores-four-outcomes-on-both-paths.md">0025</a></td>
+      <td>The eval scores correct, refused, wrong and leaked — on the graph and the vector path</td><td>“Confidently wrong” and “leaked” are different failures and both matter</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0026-the-gate-and-review.md">0026</a></td>
+      <td><code>make gate</code> is the deploy gate: zero leaks, policy in sync, chain intact, eval at baseline</td><td>A claim the repository makes is a check that runs</td></tr>
+  </table></div>
+
+  <h3 style="margin-top:24px">The lab itself</h3>
+  <div class="table-wrap"><table>
+    <tr><th>ADR</th><th>Decision</th><th>Why</th></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0003-loopback-only-and-no-authentication.md">0003</a></td>
+      <td>Loopback only; the stores have no authentication</td><td>Not built to be reached — said plainly, not hidden</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0020-documents-generated-from-the-ground-truth.md">0020</a></td>
+      <td>Documents are generated from the estate, with the facts each carries</td><td>The gold set is exact, so extraction can be scored</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0027-the-demo-ui.md">0027</a></td>
+      <td>One screen per person, no switcher</td><td>A role the browser can pass is not a boundary</td></tr>
+    <tr><td class="adr"><a href="https://github.com/fps4/trusted-knowledge-graph/blob/main/docs/decisions/0024-what-was-cut-and-why.md">0024</a></td>
+      <td>What was cut, and what it costs</td><td>Listed rather than left to be discovered — e.g. the review workbench is a CLI</td></tr>
+  </table></div>
+
+  <footer>
+    <p>All 28 decision records, the reports behind every number, and the code:
+      <a href="https://github.com/fps4/trusted-knowledge-graph/tree/main/docs/decisions">docs/decisions</a> ·
+      <a href="https://github.com/fps4/trusted-knowledge-graph">github.com/fps4/trusted-knowledge-graph</a></p>
+  </footer>
+</main>
+</body>
+</html>

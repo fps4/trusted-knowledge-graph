@@ -4,195 +4,58 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trusted Knowledge Layer — lab</title>
-<meta name="description" content="A working lab of a permission-aware knowledge layer for a law firm: a graph anchored to systems of record, one resolver that decides before it retrieves, and a record of every decision.">
-<style>
-  :root {
-    --bg: #f7f7f5; --card: #ffffff; --fg: #1a1a1a; --muted: #5f6368; --line: #e3e3e0;
-    --accent: #1a1a1a; --banner: #fdf1c7; --banner-fg: #5c4800; --good: #1e7a3c; --bad: #b3261e;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #141414; --card: #1d1d1d; --fg: #ececec; --muted: #a0a0a0; --line: #2e2e2e;
-      --accent: #ececec; --banner: #3a3210; --banner-fg: #f3dd8a; --good: #6fcf8f; --bad: #f08a80;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  a { color: inherit; }
-  .banner { background: var(--banner); color: var(--banner-fg); text-align: center;
-            font-size: 13px; padding: 6px 16px; }
-  main { max-width: 980px; margin: 0 auto; padding: 44px 16px 72px; }
-  .eyebrow { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
-  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 12px; }
-  .lead { font-size: 18px; max-width: 64ch; margin: 0; }
-  h2 { font-size: 20px; margin: 48px 0 12px; }
-  p, li { max-width: 72ch; }
-  .muted { color: var(--muted); }
-  .small { font-size: 14px; }
-  .cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-  .box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-  .box h3 { font-size: 15px; margin: 0 0 6px; }
-  .box p { margin: 0; font-size: 15px; }
-  .steps { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); counter-reset: s; }
-  .step { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
-  .step b { display: block; font-size: 15px; margin-bottom: 2px; }
-  .step b::before { counter-increment: s; content: counter(s) " · "; color: var(--muted); font-weight: 500; }
-  .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-  .stat .num { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .stat .num .vs { font-size: 15px; font-weight: 500; color: var(--muted); }
-  .good { color: var(--good); } .bad { color: var(--bad); }
-  .stat p { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
-  .people { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-  a.card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--line);
-           border-radius: 12px; background: var(--card); text-decoration: none; }
-  a.card:hover { border-color: var(--accent); }
-  .name { font-weight: 650; font-size: 17px; }
-  .role { color: var(--muted); font-size: 14px; }
-  .what { font-size: 14px; margin-top: 6px; }
-  .ask { font-size: 14px; margin-top: 8px; font-style: italic; }
-  .open { margin-top: auto; padding-top: 12px; font-size: 14px; font-weight: 600; }
-  .open span { font: 13px ui-monospace, Menlo, monospace; font-weight: 400; color: var(--muted); }
-  ol.tour { padding-left: 22px; margin: 0; }
-  ol.tour li { margin: 0 0 10px; }
-  ul { padding-left: 20px; margin: 0; }
-  ul li { margin: 0 0 6px; }
-  code, pre { font: 13px ui-monospace, Menlo, monospace; }
-  pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
-        overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 8px 0; }
-  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
-</style>
+<meta name="description" content="A working lab of a permission-aware knowledge layer for a law firm.">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="banner">Synthetic. No real firm, client, matter or person. Identity is asserted, not federated.</div>
+<nav class="top">
+  <a href="index.html" aria-current="page">Start</a>
+  <a href="about.html">About the demo</a>
+  <a href="architecture.html">Architecture &amp; decisions</a>
+  <a href="https://github.com/fps4/trusted-knowledge-graph">Source</a>
+</nav>
 <main>
-
   <p class="eyebrow">Working lab · Lab Firm LLP</p>
   <h1>A knowledge layer a lawyer can act on — and an AI can stand on</h1>
   <p class="lead">
-    This is a running demonstration of one architecture for a law firm's knowledge: facts about matters,
-    clients and people, joined across the firm's systems, that an assistant can answer from — while the
-    firm's information barriers hold for every fact, every document and everything derived from them.
+    Facts about a law firm's matters, clients and people, joined across its systems, that an assistant
+    can answer from — while the firm's information barriers hold for every fact, document and
+    everything derived from them. Every answer is decided before it is retrieved, and every decision is recorded.
   </p>
 
-  <h2>The problem it addresses</h2>
-  <div class="cols">
-    <div class="box">
-      <h3>Questions search cannot answer</h3>
-      <p>"Have we advised a Dutch fund manager on an AFM investigation since 2021 — who led it, what was the
-        outcome?" needs a complete list, joined across practice management, CRM and HR. Top-k passages give
-        a few lookalikes, presented as the whole answer.</p>
-    </div>
-    <div class="box">
-      <h3>Barriers that leak through derived content</h3>
-      <p>A note filed on an open matter that cites a walled one passes any document-level filter. So do
-        summaries, counts and extracted facts. Access has to follow lineage, not just the file.</p>
-    </div>
-    <div class="box">
-      <h3>Words with more than one meaning</h3>
-      <p>"Active client" means four different things to Business Development, the practice groups,
-        Finance and Risk. An assistant that picks one silently gives a confident, wrong number.</p>
-    </div>
-  </div>
-
-  <h2>How it works</h2>
-  <p class="muted small">Every question — from the chat, the guided form, or an AI agent over MCP — goes through one resolver, as one person:</p>
-  <div class="steps">
-    <div class="step"><b>Plan</b>Match the question to a competency question the graph is built to answer.</div>
-    <div class="step"><b>Terms</b>Resolve business words against an owned glossary; ask when a word is ambiguous.</div>
-    <div class="step"><b>Decide</b>Check every candidate matter and fact, and what it derives from, against the barrier rules (OPA).</div>
-    <div class="step"><b>Retrieve</b>Only then query the graph and the search index — bound to what was allowed.</div>
-    <div class="step"><b>Record</b>Write the decision, its rules and its grounds to a hash-chained record.</div>
-  </div>
-  <p class="muted small">The graph's spine is mapped from systems of record (practice management, CRM, HR); facts from
-    documents are extracted by Claude with a named source and a review state. The estate is invented:
-    around 400 matters with their clients, people and documents.</p>
-
-  <h2>What the lab measured</h2>
-  <div class="stats">
-    <div class="stat"><div class="num good">0 <span class="vs">of 250</span></div>
-      <p>barrier questions that leaked walled content, asked as every person through the same boundary the AI uses</p></div>
-    <div class="stat"><div class="num">34 <span class="vs">vs</span> 10 <span class="vs">of 34</span></div>
-      <p>correct answers: graph path vs vector search behind a document ACL — which gave 9 confidently wrong ones</p></div>
-    <div class="stat"><div class="num"><span class="bad">16</span> <span class="vs">vs</span> <span class="good">0</span> <span class="vs">of 16</span></div>
-      <p>precedent questions leaking walled content: document-level filtering vs lineage-aware filtering</p></div>
-    <div class="stat"><div class="num">0.96 <span class="vs">/</span> 0.98</div>
-      <p>precision / recall of fact extraction from documents against the gold set the synthetic estate was generated from</p></div>
-  </div>
-  <p class="muted small">The question battery is built from competency questions — the graph's home ground. Where search
-    should win (exact wording, the long tail) is stated in the repository, not hidden.</p>
-
-  <h2>Meet the people — open a screen</h2>
-  <p class="muted small">Each screen <em>is</em> one person, fixed. There is no login and no switcher, on purpose:
-    a role an assistant can pass as a parameter is not a boundary.</p>
   <div class="people">
     <a class="card" href="http://127.0.0.1:3101/">
       <span class="name">Mara de Vries</span>
-      <span class="role">Partner · Asset Management · Amsterdam</span>
-      <span class="what">Leads the walled matter M-2022-0117, so she sees it — with sources and lineage.</span>
-      <span class="ask">“Has the firm advised a Dutch fund manager on an AFM investigation since 2021?”</span>
-      <span class="open">Open Mara's screen → <span>:3101</span></span>
+      <span class="role">Partner · Asset Management</span>
+      <span class="what">Leads the walled matter — sees it, with sources and lineage.</span>
+      <span class="open">Open → <span>:3101</span></span>
     </a>
     <a class="card" href="http://127.0.0.1:3102/">
       <span class="name">Sanne Okonjo</span>
-      <span class="role">Associate · Financial Institutions · London</span>
-      <span class="what">Screened from M-2022-0117 by barrier B-03. Same questions, fewer answers — and the rule that says why.</span>
-      <span class="ask">“Who led M-2022-0117?”</span>
-      <span class="open">Open Sanne's screen → <span>:3102</span></span>
+      <span class="role">Associate · Financial Institutions</span>
+      <span class="what">Screened by barrier B-03 — same questions, fewer answers, and why.</span>
+      <span class="open">Open → <span>:3102</span></span>
     </a>
     <a class="card" href="http://127.0.0.1:3103/">
       <span class="name">Kim Bakker</span>
       <span class="role">Knowledge lawyer</span>
-      <span class="what">Sees broadly across the firm, except one need-to-know matter (B-11).</span>
-      <span class="ask">“What does ‘active client’ mean here?”</span>
-      <span class="open">Open Kim's screen → <span>:3103</span></span>
+      <span class="what">Sees broadly, except one need-to-know matter. Try “active client”.</span>
+      <span class="open">Open → <span>:3103</span></span>
     </a>
     <a class="card" href="http://127.0.0.1:3104/">
       <span class="name">Risk &amp; Compliance</span>
-      <span class="role">Reads the decision record — sees no matter content</span>
-      <span class="what">Who was shown what, who was refused and under which rule, and whether the record is intact.</span>
-      <span class="ask">“Who has ever been shown anything derived from M-2022-0117?”</span>
-      <span class="open">Open Risk's screen → <span>:3104</span></span>
+      <span class="role">Reads the decision record</span>
+      <span class="what">Who was shown what, who was refused, and whether the record is intact.</span>
+      <span class="open">Open → <span>:3104</span></span>
     </a>
   </div>
+  <p class="muted small">Each screen is one person, fixed — no login and no switcher, on purpose.</p>
 
-  <h2>A five-minute tour</h2>
-  <ol class="tour">
-    <li><strong>Mara</strong> asks the AFM question. Five matters, each with its source. Click the answer, then
-      <em>Sources</em> to open a PDF and <em>Lineage</em> to see fact → document → matter. Note the one
-      outcome that is still <em>unconfirmed</em>.</li>
-    <li><strong>Sanne</strong> asks the same question. Four matters. <em>Explain</em> shows the rule that
-      withheld the fifth — B-03, its owner, the date it was set — and how much was blocked directly vs by lineage.</li>
-    <li><strong>Sanne</strong> asks “Who led M-2022-0117?” — refused, with the grounds. “Who has the most AFM
-      investigation experience?” — refused as an aggregate, because a count can reveal a walled matter.</li>
-    <li><strong>Kim</strong> asks about “active client”. Four readings, four owners, four counts — the assistant
-      asks which one instead of choosing.</li>
-    <li><strong>Risk</strong> opens the record: everything just asked is there, Sanne's refusals under B-03, and
-      the chain verifies. Paste a trace id from any answer to see the same grounds, read back later.</li>
-  </ol>
-
-  <h2>On each screen</h2>
-  <ul>
-    <li><strong>Chat</strong> — plain questions; Claude (Anthropic API) picks the competency question and calls the resolver as that person. Each tool call shows its outcome.</li>
-    <li><strong>Guided</strong> — pick a competency question and fill its slots. No model and no network: the fallback that always works.</li>
-    <li><strong>Inspector</strong> — for the selected answer: <em>Trace</em> (route, terms, slots, policy version), <em>Explain</em> (the rules),
-      <em>Sources</em> (PDFs signed with that person's own credentials), <em>Lineage</em>, and <em>Record</em> (the stored decision).</li>
-  </ul>
-
-  <h2>What this is not</h2>
-  <ul>
-    <li>Not a real firm, and not production. A pattern, implemented at laptop scale and measured.</li>
-    <li>Identity is asserted by each screen's own key, not federated from an identity provider — the one place the lab is weaker than the design.</li>
-    <li>The record is tamper-evident, not tamper-proof.</li>
-  </ul>
-
-  <footer>
-    <p>Source, design decisions and the reports behind every number:
-      <a href="https://github.com/fps4/trusted-knowledge-graph">github.com/fps4/trusted-knowledge-graph</a></p>
-    <p>The screens listen on the host's loopback only. From another machine, one tunnel (9100 is the document store, for the PDF links):</p>
-    <pre>ssh -N -L 3100:127.0.0.1:3100 -L 3101:127.0.0.1:3101 -L 3102:127.0.0.1:3102 -L 3103:127.0.0.1:3103 -L 3104:127.0.0.1:3104 -L 9100:127.0.0.1:9100 &lt;host&gt;</pre>
-  </footer>
+  <div class="more">
+    <a href="about.html"><b>About the demo →</b><span>The problem, what was measured, and a five-minute tour.</span></a>
+    <a href="architecture.html"><b>Architecture &amp; decisions →</b><span>The components, the path of one question, and the choices behind them.</span></a>
+  </div>
 </main>
 </body>
 </html>
