@@ -5,7 +5,7 @@ whole pipeline: seed the systems of record, map them to the spine, add the facts
 told by partners, validate against the shapes, and only then load. Validation
 before loading is the point — a load that violates the contract does not land.
 
-From M1, questions are asked *as someone*: `tkg ask --as sanne …` goes through the
+Questions are asked *as someone*: `tkg ask --as sanne …` goes through the
 resolver over HTTP with that persona's assertion, exactly as her MCP session does.
 """
 

@@ -52,7 +52,7 @@ CREATE TABLE pms.matter_team (
     PRIMARY KEY (matter_ref, person_ref, from_date)
 );
 
--- Read in M1. Present from M0 so the mapping and the schema do not move later.
+-- The source a barrier rule is checked against; barriers.yaml holds the rule itself.
 CREATE TABLE pms.matter_restriction (
     matter_ref text NOT NULL REFERENCES pms.matter(matter_ref),
     rule_id    text NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE pms.invoice (
 
 -- ── crm ─────────────────────────────────────────────────────────────────────
 -- Deliberately not joined to pms.client. The same organisation is spelled
--- differently here, and resolving that is a later milestone's job, not a JOIN.
+-- differently here, and resolving that is identity resolution's job, not a JOIN.
 CREATE TABLE crm.account (
     account_id               serial PRIMARY KEY,
     account_ref              text NOT NULL UNIQUE,

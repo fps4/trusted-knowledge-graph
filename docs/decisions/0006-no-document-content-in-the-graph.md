@@ -1,6 +1,6 @@
 # 6. "The graph holds no document content" is a shape, not a sentence
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 
@@ -25,6 +25,6 @@ store, and `tests/test_shapes.py` asserts that a 501-character literal fails.
 - The rule can be shown failing, which is the only way to show it holds.
 - 500 is arbitrary and chosen to be obviously wrong to breach: names, references
   and labels are far below it, prose is far above. It is a tripwire, not a budget.
-- It constrains later milestones deliberately. When extraction arrives, a fact
-  will carry a pointer to its source document and an offset — not the passage. The
-  passage belongs to the index, and the bytes belong to the document store.
+- It constrains extraction deliberately. An extracted fact carries a pointer to its
+  source document — not the passage. The passage belongs to the index, and the bytes
+  belong to the document store.

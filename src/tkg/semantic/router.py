@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Until M3 there is no index. The router says so rather than pretending.
+# Without an index the router says so rather than pretending. The resolver passes
+# whether its index answers; this is the default when none is wired in.
 INDEX_AVAILABLE = False
 
 
@@ -33,7 +34,7 @@ def route(needs: str, template_id: str, ambiguous: str | None = None,
     if not index_available:
         return Route(
             "refuse",
-            f"{template_id} needs passages from documents, and the index arrives in M3",
+            f"{template_id} needs passages from documents, and the index is not available",
         )
     if needs == "passages":
         return Route("index", f"{template_id} is answered from passages, pre-filtered")

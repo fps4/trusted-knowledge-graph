@@ -1,6 +1,6 @@
 # 1. The systems of record are a database, not flat exports
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 

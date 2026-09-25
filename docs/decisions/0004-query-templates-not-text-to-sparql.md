@@ -1,6 +1,6 @@
 # 4. Queries come from templates bound to competency questions
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 

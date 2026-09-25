@@ -8,7 +8,7 @@ morph-kgc's `materialize` returns an rdflib Graph, which cannot hold a named
 graph — so it comes back empty for mappings that use rr:graphMap, which all of
 ours do. `materialize_set` returns the quads as N-Quads lines, graph included,
 and that is what the spine needs: the named graph is the unit of provenance, and
-from M1 the unit of access.
+the unit of access.
 """
 
 from __future__ import annotations

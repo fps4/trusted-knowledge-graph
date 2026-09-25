@@ -1,11 +1,10 @@
 # 14. A fact with a confidence is a reified node, not RDF-star
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 
-M1 brings in the first facts that are not rows in a system of record: outcomes
-told by a partner, with nobody's document behind them — the capture step. A fact
+Some facts are not rows in a system of record: outcomes told by a partner, with nobody's document behind them — the capture step. A fact
 like that needs a source, a confidence and a review state, and the spine's plain
 triples have nowhere to put them.
 
@@ -25,5 +24,5 @@ A small `ssf:Fact` node: `factSubject`, `factPredicate`, `factObject`,
   slightly worse than they would with RDF-star.
 - The review state is data. An unconfirmed fact is returned and says it is
   unconfirmed; deciding what to do with it is the lawyer's call, not the system's.
-- The same node carries extracted facts in M3, with a document instead of a person
-  as their source.
+- The same node carries extracted facts, with a document instead of a person as
+  their source.

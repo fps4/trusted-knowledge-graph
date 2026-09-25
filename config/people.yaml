@@ -6,7 +6,7 @@
 # started with that key and no other. See docs/decisions/0011.
 #
 # `about` is shown to the persona by whoami(), so it says who someone is and
-# never what they are walled from. The first Claude Code session run against M1
+# never what they are walled from. The first Claude Code session run against the lab
 # found an `about` that named the matter Sanne is screened from — the barrier
 # suite scans whoami() now. Which rule covers whom lives in barriers.yaml.
 

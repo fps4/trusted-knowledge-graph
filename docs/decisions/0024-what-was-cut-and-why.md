@@ -1,6 +1,6 @@
 # 24. What was cut, and why — the cut list, applied
 
-Status: accepted · 2026-09-25 · M3–M4
+Status: accepted · 2026-09-25
 
 The build plan ordered what would be cut under pressure. What was cut is listed
 here rather than left to be discovered, each with what it costs.

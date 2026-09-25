@@ -1,6 +1,6 @@
 # 23. Extraction by Claude, through the Batches API, into committed fixtures
 
-Status: accepted · 2026-09-25 · M3
+Status: accepted · 2026-09-25
 
 ## Context
 

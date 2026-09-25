@@ -1,6 +1,6 @@
 # 26. `make gate` is the deploy gate, and review is a decision on the record
 
-Status: accepted · 2026-09-25 · M4
+Status: accepted · 2026-09-25
 
 ## Gate
 

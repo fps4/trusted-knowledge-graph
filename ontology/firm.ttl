@@ -11,8 +11,8 @@
     dct:description """A deliberately small OWL profile: classes, a few domains and
 ranges, and nothing that needs a reasoner to be useful. The vocabulary for areas of
 law and matter types is a SKOS scheme, not a class hierarchy, so that knowledge
-management can own it without a release. M2 maps that scheme onto SALI LMSS.""" ;
-    owl:versionInfo "0.4.0 — M3" .
+management can own it without a release. The scheme is mapped onto SALI LMSS.""" ;
+    owl:versionInfo "0.4.0" .
 
 # ── Classes ──────────────────────────────────────────────────────────────────
 ssf:Matter       a owl:Class ; rdfs:label "Matter" .
@@ -26,7 +26,7 @@ ssf:Jurisdiction a owl:Class ; rdfs:label "Jurisdiction" .
 ssf:Assignment   a owl:Class ; rdfs:label "Matter assignment" ;
     rdfs:comment "Who worked a matter, in what role, between which dates. Reified because it is a fact with a validity period, and time is what 'expertise applied over time' is a question about." .
 ssf:Restriction  a owl:Class ; rdfs:label "Matter restriction" ;
-    rdfs:comment "Recorded by the practice management system. It is the source a barrier rule is compiled from in M1, not the rule itself." .
+    rdfs:comment "Recorded by the practice management system. It is the source a barrier rule is checked against, not the rule itself." .
 
 # ── Identifiers as they are in the source systems ────────────────────────────
 ssf:matterRef  a owl:DatatypeProperty ; rdfs:domain ssf:Matter  ; rdfs:range xsd:string .
@@ -67,14 +67,14 @@ ssf:assignmentRole   a owl:DatatypeProperty ; rdfs:domain ssf:Assignment ; rdfs:
 ssf:validFrom        a owl:DatatypeProperty ; rdfs:range xsd:date .
 ssf:validTo          a owl:DatatypeProperty ; rdfs:range xsd:date .
 
-# ── Restriction (source data; the rule is compiled in M1) ────────────────────
+# ── Restriction (source data; the rule lives in barriers.yaml) ──────────────
 ssf:restrictsMatter  a owl:ObjectProperty   ; rdfs:domain ssf:Restriction ; rdfs:range ssf:Matter .
 ssf:ruleId           a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
 ssf:restrictionKind  a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
 ssf:setOn            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:date .
 ssf:setBy            a owl:DatatypeProperty ; rdfs:domain ssf:Restriction ; rdfs:range xsd:string .
 
-# ── Facts that are not rows (M1) ─────────────────────────────────────────────
+# ── Facts that are not rows ──────────────────────────────────────────────────
 # A fact with a source, a confidence and a review state. Reified rather than
 # RDF-star so it works on any SPARQL 1.1 store: docs/decisions/0014.
 ssf:Fact a owl:Class ; rdfs:label "Fact" ;
@@ -102,13 +102,13 @@ ssf:citesMatter  a owl:ObjectProperty ; rdfs:label "cites matter" ;
 ssf:DerivedGraph a owl:Class ; rdfs:label "Derived graph" ;
     rdfs:subClassOf prov:Entity .
 
-# ── Billing (M2) ─────────────────────────────────────────────────────────────
+# ── Billing ──────────────────────────────────────────────────────────────────
 ssf:Invoice       a owl:Class ; rdfs:label "Invoice" .
 ssf:invoiceMatter a owl:ObjectProperty   ; rdfs:domain ssf:Invoice ; rdfs:range ssf:Matter .
 ssf:invoicedOn    a owl:DatatypeProperty ; rdfs:domain ssf:Invoice ; rdfs:range xsd:date .
 ssf:amountEur     a owl:DatatypeProperty ; rdfs:domain ssf:Invoice ; rdfs:range xsd:integer .
 
-# ── The glossary (M2) ────────────────────────────────────────────────────────
+# ── The glossary ─────────────────────────────────────────────────────────────
 # A business term is a skos:Concept in g:glossary with an owner. A term that
 # means different things to different owners has readings, and says what to do
 # when a question does not choose one. docs/decisions/0015.
@@ -126,7 +126,7 @@ ssf:means        a owl:ObjectProperty ; rdfs:comment "A value this term fills in
 ssf:meansSlot    a owl:DatatypeProperty .
 ssf:meansValue   a owl:ObjectProperty .
 
-# ── Documents (M3) ───────────────────────────────────────────────────────────
+# ── Documents ────────────────────────────────────────────────────────────────
 # A document is represented by its identifier, matter, type, date and the key of
 # its bytes in the document store — never its text. docs/decisions/0006.
 ssf:Document       a owl:Class ; rdfs:label "Document" .
@@ -149,7 +149,7 @@ ssf:charStart    a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:
     rdfs:comment "Where in the document text the evidence starts. An offset, never the passage: the passage belongs to the index." .
 ssf:charEnd      a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:integer .
 
-# ── Review (M4) ──────────────────────────────────────────────────────────────
+# ── Review ───────────────────────────────────────────────────────────────────
 # A person confirms or rejects a fact. The review is its own small graph, derived
 # from the fact's graph, so whoever may not see the fact may not see its review.
 ssf:Review     a owl:Class ; rdfs:label "Review of a fact" .

@@ -1,6 +1,6 @@
 # 2. The store is built from the Apache distribution, not a community tag
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 

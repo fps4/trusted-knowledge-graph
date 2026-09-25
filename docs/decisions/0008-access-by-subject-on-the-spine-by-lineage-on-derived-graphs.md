@@ -1,6 +1,6 @@
 # 8. Access is decided by subject on the spine and by lineage on derived graphs
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 

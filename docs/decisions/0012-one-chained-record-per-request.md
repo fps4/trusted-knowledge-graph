@@ -1,6 +1,6 @@
 # 12. One hash-chained record per request, written once, by one writer
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 

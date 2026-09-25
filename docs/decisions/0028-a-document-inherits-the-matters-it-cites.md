@@ -1,6 +1,6 @@
 # 28. A document inherits the matters it cites
 
-Status: accepted · 2026-09-25 · M4
+Status: accepted · 2026-09-25
 
 ## Context
 

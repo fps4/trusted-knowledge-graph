@@ -75,8 +75,7 @@
     rr:predicateObjectMap [ rr:predicate ssf:validTo ;
         rr:objectMap [ rr:column "to_date" ; rr:datatype xsd:date ] ] .
 
-# Source data for the barrier rules M1 compiles. Mapped now so the schema and the
-# mapping do not move when enforcement arrives.
+# Source data the barrier rules are checked against when the policy is compiled.
 <#RestrictionMap> a rr:TriplesMap ;
     rr:logicalTable [ rr:sqlQuery """
         SELECT matter_ref, rule_id, kind, set_on, set_by FROM pms.matter_restriction

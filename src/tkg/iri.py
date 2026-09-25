@@ -12,7 +12,7 @@ ID = BASE + "id/"
 GLOSSARY = BASE + "glossary/"
 GRAPH = BASE + "graph/"
 
-# Named graphs are the unit of provenance and, from M1, the unit of access.
+# Named graphs are the unit of provenance and the unit of access.
 G_SPINE_PMS = GRAPH + "spine/pms"
 G_SPINE_CRM = GRAPH + "spine/crm"
 G_SPINE_HR = GRAPH + "spine/hr"

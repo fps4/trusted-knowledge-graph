@@ -1,6 +1,6 @@
 # 25. The eval scores four outcomes on both paths, against a truth the graph did not compute
 
-Status: accepted · 2026-09-25 · M4
+Status: accepted · 2026-09-25
 
 ## Context
 
