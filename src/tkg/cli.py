@@ -235,7 +235,7 @@ def documents() -> None:
 def extract(
     limit: int = typer.Option(0, help="only the first N documents (0 = all)"),
     missing: bool = typer.Option(False, help="only documents not yet in the fixture"),
-    resume: str = typer.Option("", help="collect an existing batch by id instead of submitting"),
+    resume: str = typer.Option("", help="collect an existing batch by id, not a new one"),
 ) -> None:
     """Run extraction through Claude (Batches API) and write the fixture. Needs a key."""
     import json as _json
@@ -268,7 +268,8 @@ def extract(
     cfg.extraction_path.write_text(
         "\n".join(_json.dumps(merged[k], sort_keys=True, ensure_ascii=False)
                   for k in sorted(merged)) + "\n", encoding="utf-8")
-    console.print(f"[green]extracted {len(extract_mod.read(tmp))}[/] · tokens in {usage['input']:,} "
+    done = len(extract_mod.read(tmp))
+    console.print(f"[green]extracted {done}[/] · tokens in {usage['input']:,} "
                   f"(cache reads {usage['cache_read']:,}) · out {usage['output']:,} · "
                   f"refused {usage['refused']} · errored {usage['errored']}")
 
