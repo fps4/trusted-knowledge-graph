@@ -89,3 +89,33 @@ td.adr { white-space: nowrap; font: 13px ui-monospace, Menlo, monospace; }
 .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--banner); color: var(--banner-fg); }
 
 footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+
+/* design → lab map: five layers, each box = the design's role + what implements it here */
+:root { --claude: #c15f3c; --claude-bg: #fbeee8; }
+@media (prefers-color-scheme: dark) { :root { --claude: #e8906c; --claude-bg: #3a241c; } }
+.map { display: grid; gap: 22px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 860px) { .map { grid-template-columns: 1fr; } .map .arrow { display: none; } }
+.map .lane { background: var(--tint); border-radius: 12px; padding: 10px; gap: 8px; position: relative; }
+.map .lane > .label { font-weight: 600; margin: 2px 2px 2px; }
+.map .lane:not(:last-child)::after { content: "→"; position: absolute; right: -11px; top: 50%; transform: translate(50%, -50%);
+  width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg);
+  display: grid; place-items: center; font-size: 13px; line-height: 1; z-index: 1; }
+@media (max-width: 860px) { .map .lane:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -11px; transform: translate(50%, 50%); } }
+.m { background: var(--card); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font-size: 12.5px; line-height: 1.4; }
+.m .d { display: block; font-weight: 650; font-size: 13px; }
+.m .l { display: block; color: var(--muted); margin-top: 2px; }
+.m .l code { font-size: 11.5px; }
+.m.trust { border: 2px solid var(--accent); }
+.m.claude { border-color: var(--claude); background: var(--claude-bg); }
+.m.cut { border: 1px dashed var(--muted); opacity: .8; }
+.pill { display: inline-block; margin-top: 5px; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px;
+        background: var(--claude); color: #fff; }
+.pill.soft { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-size: 13px; color: var(--muted); align-items: center; }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px;
+            border: 1px solid var(--line); background: var(--card); }
+.legend i.trust { border: 2px solid var(--accent); } .legend i.claude { border-color: var(--claude); background: var(--claude-bg); }
+.legend i.cut { border: 1px dashed var(--muted); }
+.claude-uses { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: 8px; }
+.claude-uses .box { border-color: var(--claude); }
+.claude-uses .when { font-size: 12px; color: var(--claude); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
