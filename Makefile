@@ -70,10 +70,10 @@ extract: ## Extraction through Claude (Batches API) → data/fixtures/extraction
 extraction: ## Precision and recall against the manifest → reports/extraction.md
 	$(JOB) extraction-report
 
-naive: ## The vector-only comparison, no access decision: make naive Q="who led the AFM settlement"
-	$(JOB) naive "$(Q)"
+naive: ## The comparison, no resolver: make naive Q="what precedent on AFM settlements" [FILTER=doc-acl AS=sanne]
+	$(JOB) naive "$(Q)" --filter $(or $(FILTER),none) $(if $(FILTER),--as $(AS))
 
-eval: ## Thirty questions, both paths → reports/eval.md (graph live; vector from fixture)
+eval: ## The battery, both paths → reports/eval.md (graph live; vector from fixture)
 	$(JOB) eval
 
 eval-live: ## Regenerate the vector path's composed answers and verdicts with Claude — needs ANTHROPIC_API_KEY

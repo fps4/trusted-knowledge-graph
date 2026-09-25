@@ -16,6 +16,11 @@ a deliberately tampered policy then passed, because it agreed with itself.)
 Questions go through the resolver's HTTP API, as each persona — the same path an
 MCP session uses. Claude itself is not in the suite: it is not deterministic, and
 the boundary it sits behind is.
+
+A document that cites a matter is walled wherever that matter is (ADR 0028). What
+a document cites is read from the manifest — the ground truth — not from the
+extraction the graph was built from, so a citation extraction missed shows here as
+a leak, not as a pass.
 """
 
 from __future__ import annotations
@@ -55,22 +60,63 @@ class Case:
 
 @dataclass
 class StoreCheck:
-    """The second enforcement point, checked against the first on every document."""
+    """The second enforcement point, checked against the first on every document.
+
+    Where a document cites nothing, the graph and the store must agree exactly.
+    Where it cites a matter, the graph may be stricter than the store — the DMS does
+    not know what a document cites — but never broader. `disagreements` fail the
+    gate; `weaker` is a finding about the DMS, not a failure of the design."""
 
     checks: int = 0
     disagreements: list[str] = field(default_factory=list)
+    weaker: list[str] = field(default_factory=list)
+    weaker_docs: set[str] = field(default_factory=set)
+    citing_docs: int = 0
     stolen_attempts: int = 0
     stolen_refused: int = 0
 
 
-@dataclass
-class NaiveCheck:
-    """The comparison: the same questions, top-k over every passage, no decision."""
+# The comparison, three ways. None of them is the resolver asking the graph; they
+# are the index asked directly with the filter each approach would put on it.
+VARIANTS = {
+    "none": "no filter — a retrieval layer built by a service account",
+    "doc-acl": "document-level ACL — the passage's own matter, as a DMS-synced ACL does",
+    "lineage": "every matter the passage depends on — the resolver's filter",
+}
 
+
+@dataclass
+class VariantCheck:
     questions: int = 0
     leaked_questions: int = 0
     leaked_passages: int = 0
+    via_citation: int = 0  # leaked passages whose own matter the persona may see
     examples: list[str] = field(default_factory=list)
+
+
+@dataclass
+class NaiveCheck:
+    """The comparison: the same questions, top-k over the index, three filters."""
+
+    variants: dict[str, VariantCheck] = field(
+        default_factory=lambda: {v: VariantCheck() for v in VARIANTS})
+
+    # The unfiltered numbers, under the names the report and the README used before.
+    @property
+    def questions(self) -> int:
+        return self.variants["none"].questions
+
+    @property
+    def leaked_questions(self) -> int:
+        return self.variants["none"].leaked_questions
+
+    @property
+    def leaked_passages(self) -> int:
+        return self.variants["none"].leaked_passages
+
+    @property
+    def examples(self) -> list[str]:
+        return self.variants["none"].examples
 
 
 @dataclass
@@ -150,11 +196,37 @@ def derived_closure(facts: list[dict], denied: set[str]) -> set[str]:
     return {g for g in sources if reaches(g)}
 
 
-def _tokens(denied: set[str], graphs: set[str]) -> list[str]:
+def _tokens(denied: set[str], graphs: set[str], docs: set[str] = frozenset()) -> list[str]:
     out = sorted(denied)
     for g in sorted(graphs):
         out += [g, iri.shorten(g)]
+    for d in sorted(docs):
+        out += [d, iri.shorten(iri.doc_graph(d))]
     return out
+
+
+def doc_matters(docs) -> dict[str, set[str]]:
+    """Every matter a document depends on, per the manifest: its own and what it cites."""
+    from ..ingest.documents import cited_matters
+
+    return {d.doc_id: {d.matter, *cited_matters(d)} for d in docs}
+
+
+def walled_documents(matters_of: dict[str, set[str]], denied: set[str]) -> set[str]:
+    """Documents a person may not see: on a denied matter, or citing one."""
+    return {doc for doc, ms in matters_of.items() if ms & denied}
+
+
+def graph_is_broader(cites: bool, graph_allows: bool, store_opens: bool) -> str | None:
+    """The agreement rule between the graph and the store, for one person and document.
+
+    'disagree' fails the gate; 'weaker' is the finding that the DMS opens what the
+    graph withholds, on a document that cites a walled matter. None: as it should be."""
+    if graph_allows == store_opens:
+        return None
+    if cites and not graph_allows and store_opens:
+        return "weaker"
+    return "disagree"
 
 
 def _scan(response: dict, tokens: list[str]) -> list[str]:
@@ -203,22 +275,34 @@ def _questions(m: dict) -> list[tuple[str, str, dict]]:
 
 
 def _store_check(cfg, personas: dict, denials: dict) -> StoreCheck:
-    """OPA and the document store must agree on every persona and every document —
-    and a document id obtained some other way must yield nothing to someone denied."""
+    """The graph and the document store, on every persona and every document — and a
+    document id obtained some other way must yield nothing to someone denied.
+
+    What the graph decides for a document is its matter's decision *and* its
+    extracted graph's, by lineage — so a note citing a walled matter is withheld
+    by the graph while the store, which does not know what it cites, opens it."""
     import httpx
     from minio.error import S3Error
 
+    from ..access.decide import lineage
     from ..dms import BUCKET, Store
     from ..ingest import documents as documents_mod
+    from ..ingest.loader import Fuseki
 
     docs = documents_mod.read(cfg.documents_path)
     matters = sorted({d.matter for d in docs})
+    found = lineage(Fuseki(cfg.fuseki_url), [iri.doc_graph(d.doc_id) for d in docs])
+    lineage_map = {g: ms for g, ms in found.items() if ms}
     check = StoreCheck()
+    citing = {d.doc_id for d in docs
+              if set(lineage_map.get(iri.doc_graph(d.doc_id), [])) - {d.matter}}
+    check.citing_docs = len(citing)
     for pid, p in personas.items():
         decision = httpx.post(f"{cfg.opa_url}/v1/data/tkg/access/decision", json={"input": {
-            "principal": p["principal"], "matters": matters, "lineage": {}}}, timeout=60
-        ).json()["result"]
+            "principal": p["principal"], "matters": matters, "lineage": lineage_map}},
+            timeout=60).json()["result"]
         allowed = {m for m, d in decision["matters"].items() if d["allow"]}
+        graphs = decision.get("graphs", {})
         secret = (cfg.secrets_dir / f"minio-{pid}.secret").read_text().strip()
         store = Store(cfg.minio_url, pid, secret)
         for d in docs:
@@ -229,10 +313,16 @@ def _store_check(cfg, personas: dict, denials: dict) -> StoreCheck:
             except S3Error:
                 opened = False
             check.checks += 1
-            if opened != (d.matter in allowed):
-                opa = "allow" if d.matter in allowed else "deny"
+            g = iri.doc_graph(d.doc_id)
+            allows = d.matter in allowed and graphs.get(g, {"allow": True})["allow"]
+            verdict = graph_is_broader(d.doc_id in citing, allows, opened)
+            if verdict == "weaker":
+                check.weaker.append(f"{pid} {key}")
+                check.weaker_docs.add(d.doc_id)
+            elif verdict == "disagree":
                 check.disagreements.append(
-                    f"{pid} {key}: opa={opa} store={'open' if opened else 'refused'}"
+                    f"{pid} {key}: graph={'allow' if allows else 'deny'} "
+                    f"store={'open' if opened else 'refused'}"
                 )
             if pid in denials and d.matter in denials[pid]:
                 check.stolen_attempts += 1
@@ -240,33 +330,57 @@ def _store_check(cfg, personas: dict, denials: dict) -> StoreCheck:
     return check
 
 
+def naive_questions(m: dict) -> list[tuple[str, str]]:
+    """What a screened lawyer would actually type about a restricted matter: naming the
+    client, or — the realistic one — asking for precedent, naming nothing at all."""
+    kind = m["matter_type"].replace("-", " ")
+    return [
+        ("client-named", f"What was the outcome of the {kind} for {m['client_name']}, "
+                         f"and who led it?"),
+        ("precedent", f"What precedent do we have on a {kind} for a "
+                      f"{m['client_type'].replace('-', ' ')}, and how did similar matters end?"),
+    ]
+
+
 def _naive_check(cfg, attrs: dict, rules: list, denials: dict, tokens: dict) -> NaiveCheck:
-    """The vector-only path, on questions about each restricted matter, as each person
-    screened from it. Not a pass/fail: the number the design is measured against."""
-    from ..index import Embedder, Index
+    """The index asked directly, on questions about each restricted matter, as each
+    person screened from it — with no filter, with a document-level ACL, and with the
+    resolver's lineage filter. Not a pass/fail: the numbers the design is measured
+    against. A leak is a passage from a document that depends, per the manifest, on
+    a matter the person is walled from."""
+    from ..index import DOC_ACL, LINEAGE, NONE, Embedder, Index
+    from ..ingest import documents as documents_mod
 
     index, embed = Index(cfg.index_url), Embedder()
+    matters_of = doc_matters(documents_mod.read(cfg.documents_path))
+    every = sorted({m for ms in matters_of.values() for m in ms})
     check = NaiveCheck()
     for _, matter in rules:
         m = attrs[matter]
-        # The question a screened lawyer would actually type: it names the client.
-        text = (f"What was the outcome of the {m['matter_type'].replace('-', ' ')} for "
-                f"{m['client_name']}, and who led it?")
-        hits = index.search(text, embed([text])[0], None, k=5)
-        for persona, denied in denials.items():
-            if matter not in denied:
-                continue
-            check.questions += 1
-            leaked = [h for h in hits if h["matter_id"] in denied]
-            if leaked:
-                check.leaked_questions += 1
-                check.leaked_passages += len(leaked)
-                if len(check.examples) < 3:
-                    walled = ", ".join(sorted({h["matter_id"] for h in leaked}))
-                    check.examples.append(
-                        f"{persona} asked about a {m['matter_type']}: top-5 held "
-                        f"{len(leaked)} passage(s) from walled matters ({walled})"
-                    )
+        for shape, text in naive_questions(m):
+            vector = embed([text])[0]
+            unfiltered = index.search(text, vector, None, k=5)
+            for persona, denied in denials.items():
+                if matter not in denied:
+                    continue
+                permitted = [x for x in every if x not in denied]
+                for variant in VARIANTS:
+                    hits = unfiltered if variant == NONE else index.search(
+                        text, vector, permitted, k=5,
+                        mode=DOC_ACL if variant == DOC_ACL else LINEAGE)
+                    v = check.variants[variant]
+                    v.questions += 1
+                    leaked = [h for h in hits if matters_of.get(h["doc_id"], set()) & denied]
+                    if not leaked:
+                        continue
+                    v.leaked_questions += 1
+                    v.leaked_passages += len(leaked)
+                    v.via_citation += sum(1 for h in leaked if h["matter_id"] not in denied)
+                    if len(v.examples) < 3:
+                        docs = ", ".join(sorted({h["doc_id"] for h in leaked}))
+                        v.examples.append(
+                            f"{persona}, {shape} question about a {m['matter_type']}: top-5 "
+                            f"held {len(leaked)} walled passage(s) ({docs})")
     return check
 
 
@@ -291,6 +405,25 @@ def _judge(case: Case, response: dict, disclosure: str, tokens: list[str]) -> No
             case.problem = "over-refusal: a matter this persona may see was withheld"
 
 
+def _judge_note(case: Case, response: dict, note: str, disclosure: str,
+                tokens: list[str]) -> None:
+    case.outcome = response.get("outcome", "?")
+    case.rows = len(response.get("rows") or [])
+    case.trace = response.get("trace", "")
+    case.leaked = _scan(response, tokens)
+    listed = {r.get("docId") for r in response.get("rows") or []}
+    linked = {s.get("document") for s in response.get("sources") or []}
+    blocked = ((response.get("explain") or {}).get("blocked") or {}).get("by_lineage", 0)
+    if case.outcome.startswith("refused") or not case.rows:
+        case.problem = "over-refusal: the open matter's documents were withheld"
+    elif case.denied and (note in listed or note in linked):
+        case.problem = "a note citing a walled matter was listed or linked"
+    elif case.denied and disclosure == "withheld-count" and not blocked:
+        case.problem = "a withheld note was not counted as withheld by lineage"
+    elif not case.denied and note not in listed:
+        case.problem = "over-refusal: a note this persona may see was withheld"
+
+
 def run(cfg, console) -> Result:
     import yaml
 
@@ -306,8 +439,13 @@ def run(cfg, console) -> Result:
     rules = sorted((r["id"], r["matter"]) for r in barriers["rules"])
     attrs = _matters(cfg.db_dsn, [m for _, m in rules])
 
+    from ..ingest import documents as documents_mod
+
+    docs = documents_mod.read(cfg.documents_path)
+    matters_of = doc_matters(docs)
     denials = {p: expected_denials(barriers, personas[p], records) for p in PERSONAS}
-    tokens = {p: _tokens(denials[p], derived_closure(facts, denials[p])) for p in PERSONAS}
+    tokens = {p: _tokens(denials[p], derived_closure(facts, denials[p]),
+                         walled_documents(matters_of, denials[p])) for p in PERSONAS}
     clients = {p: ResolverClient(cfg.resolver_url, cfg.secrets_dir, p) for p in personas}
 
     cases: list[Case] = []
@@ -344,6 +482,34 @@ def run(cfg, console) -> Result:
             else:
                 case.outcome = "no permit — nothing permitted"
             cases.append(case)
+
+    # Precedent notes: filed on an open matter anyone may see, citing a restricted one.
+    # Asked for that open matter's documents, a person walled from the cited matter
+    # must not get the note — not its row, not its facts, not a link, not a passage.
+    # Someone who may see both must get it: withholding it would be an over-refusal.
+    restricted = {m for _, m in rules}
+    rule_of = {m: r for r, m in rules}
+    for note in (d for d in docs if d.doc_type == "knowledge-note"):
+        for cited in sorted(matters_of[note.doc_id] - {note.matter}):
+            if cited not in restricted:
+                continue
+            for persona in PERSONAS:
+                case = Case(rule_of[cited], cited, persona, "citing note", "CQ-10",
+                            {"matter": note.matter, "note": note.doc_id},
+                            denied=cited in denials[persona])
+                response = clients[persona].ask("CQ-10", {"matter": note.matter})
+                _judge_note(case, response, note.doc_id, disclosure, tokens[persona])
+                cases.append(case)
+                if response.get("permit"):
+                    after = clients[persona].passages(response["permit"],
+                                                      "precedent outcome settlement fine")
+                    case = Case(rule_of[cited], cited, persona, "passages", "passages",
+                                {"after": "CQ-10", "matter": note.matter},
+                                denied=cited in denials[persona])
+                    case.outcome, case.trace = after.get("outcome", "?"), after.get("trace", "")
+                    case.rows = len(after.get("passages") or [])
+                    case.leaked = _scan(after, tokens[persona])
+                    cases.append(case)
 
     # The permit is the lock on the one door the tool surface itself opens.
     mara = clients["mara"].ask("CQ-01", {"client": "C-0042"})
@@ -463,23 +629,30 @@ def run(cfg, console) -> Result:
         console.print(f"  [red]✗ audit[/] {line}")
     st, nv = result.store, result.naive
     console.print(
-        f"document store: {st.checks} persona×document checks against OPA, "
-        f"{len(st.disagreements)} disagreements · stolen ids {st.stolen_refused}/"
-        f"{st.stolen_attempts} refused"
+        f"document store: {st.checks} persona×document checks against the graph, "
+        f"{len(st.disagreements)} where the graph is broader or they disagree · stolen ids "
+        f"{st.stolen_refused}/{st.stolen_attempts} refused"
     )
     for line in st.disagreements[:5]:
         console.print(f"  [red]✗ store[/] {line}")
-    console.print(
-        f"[yellow]vector-only comparison:[/] {nv.leaked_questions} of {nv.questions} questions "
-        f"returned passages from a walled matter ({nv.leaked_passages} passages)"
-    )
+    if st.weaker_docs:
+        console.print(
+            f"[yellow]finding:[/] the DMS is weaker than the graph on {len(st.weaker_docs)} "
+            f"documents that cite walled matters ({len(st.weaker)} person×document pairs)"
+        )
+    for variant, v in nv.variants.items():
+        console.print(
+            f"[yellow]vector comparison, {variant}:[/] {v.leaked_questions} of {v.questions} "
+            f"questions returned walled passages ({v.leaked_passages} passages, "
+            f"{v.via_citation} through a citation)"
+        )
     console.print("[green]zero leaks[/]" if result.passed else "[red]FAILED[/]")
     return result
 
 
 def render(result: Result) -> str:
     cases = [c for c in result.cases
-             if c.shape not in ("identity", "session", "term", "passages")]
+             if c.shape not in ("identity", "session", "term", "passages", "citing note")]
     denied = [c for c in cases if c.denied]
     lines = [
         "# Barrier suite",
@@ -498,6 +671,8 @@ def render(result: Result) -> str:
         f"| disclosure policy | `{result.disclosure}` |",
         f"| questions asked | {len(result.cases)} |",
         f"| … where the persona is denied the matter | {len(denied)} |",
+        f"| precedent notes citing a restricted matter, asked for as each persona | "
+        f"{sum(1 for c in result.cases if c.shape == 'citing note')} |",
         f"| **leaked** | **{len(result.leaks)}** |",
         f"| wrong refusals (including over-refusals) | {len(result.problems)} |",
         f"| doors behaving (permit, decision record) | "
@@ -540,28 +715,61 @@ def render(result: Result) -> str:
     for c in passages:
         lines.append(f"| {c.rule} | {c.persona} | {'no' if c.denied else 'yes'} | {c.rows} | "
                      f"{', '.join(c.leaked) or 'nothing'} |")
+    notes = [c for c in result.cases if c.shape == "citing note"]
+    lines += [
+        "", "## Precedent notes — a document inherits the matters it cites", "",
+        "A knowledge note filed on an open, unrestricted matter cites a restricted matter by",
+        "its file number, with that matter's client and outcome. Each persona asks for the",
+        "open matter's documents (CQ-10). Walled from the cited matter, the note must not be",
+        "listed, linked or passed as a passage — and must be counted as withheld by lineage;",
+        "allowed both, it must be listed. What a note cites is read from the manifest.", "",
+        "| rule | cited | filed on | note | persona | may see the cited matter | outcome | "
+        "as it should be |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for c in notes:
+        ok = "yes" if not (c.leaked or c.problem) else f"**no** — {c.problem or 'leaked'}"
+        lines.append(f"| {c.rule} | {c.matter} | {c.slots['matter']} | {c.slots['note']} | "
+                     f"{c.persona} | {'no' if c.denied else 'yes'} | {c.outcome} | {ok} |")
     lines += [
         "", "## The document store — the second enforcement point", "",
         "Every persona, every document: the store's own policy (compiled from `barriers.yaml`",
         "into per-persona MinIO users) against OPA's decision for the document's matter. Then",
         "the stolen identifier: each restricted document fetched with the credentials of each",
         "person walled from it — the case where an id leaked by some other route.", "",
+        "Where a document cites nothing, the graph and the store must agree exactly. Where it",
+        "cites another matter, the graph may be *stricter* than the store — the DMS does not",
+        "know what a document cites — but never broader; only broader fails the gate.", "",
         "| | |", "|---|---|",
         f"| persona × document checks | {st.checks} |",
-        f"| **disagreements with OPA** | **{len(st.disagreements)}** |",
+        f"| **the graph broader than the store, or disagreeing where nothing is cited** | "
+        f"**{len(st.disagreements)}** |",
+        f"| documents citing another matter, per the graph's lineage | {st.citing_docs} |",
+        f"| … where the store opens what the graph withholds | {len(st.weaker_docs)} documents, "
+        f"{len(st.weaker)} person × document pairs |",
         f"| stolen-id fetches refused by the store | {st.stolen_refused} / {st.stolen_attempts} |",
-        "", "## The comparison — vector-only retrieval", "",
-        "The same kind of question, answered the ordinary way: top-5 passages over the whole",
-        "index, no access decision, as a retrieval layer built by a service account behaves.",
-        "Not a pass or fail — the number the design is measured against.", "",
-        "| | |", "|---|---|",
-        f"| questions about a restricted matter, asked by someone walled from it | "
-        f"{nv.questions} |",
-        f"| **returned passages from a walled matter** | **{nv.leaked_questions}** |",
-        f"| walled passages returned | {nv.leaked_passages} |",
         "",
+        f"**Finding.** The DMS is weaker than the graph on {len(st.weaker_docs)} documents that "
+        "cite walled matters: it filters by the matter a document is filed on, and does not",
+        "know what the document cites. Classification write-back to the DMS is the",
+        "programme's fix; the lab does not add per-object denies the DMS would not have.",
+        "", "## The comparison — the index asked directly, three filters", "",
+        "Questions about each restricted matter, asked as each person walled from it — one",
+        "naming the client, one asking for precedent and naming nothing. Top-5 passages,",
+        "filtered three ways. A leak is a passage from a document that depends, per the",
+        "manifest, on a walled matter: filed on one, or citing one. Not a pass or fail —",
+        "the numbers the design is measured against.", "",
+        "| filter | questions | **returned walled passages** | walled passages | "
+        "… through a citation |",
+        "|---|---|---|---|---|",
     ]
-    lines += [f"- {e}" for e in nv.examples]
+    for variant, label in VARIANTS.items():
+        v = nv.variants[variant]
+        lines.append(f"| {label} | {v.questions} | **{v.leaked_questions}** | "
+                     f"{v.leaked_passages} | {v.via_citation} |")
+    lines.append("")
+    for variant in VARIANTS:
+        lines += [f"- `{variant}` — {e}" for e in nv.variants[variant].examples]
     lines += ["", "## Identities that must see nothing", "", "| persona | question | outcome |",
               "|---|---|---|"]
     for c in result.cases:

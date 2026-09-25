@@ -1,19 +1,21 @@
-"""Thirty questions, both paths, four outcomes: correct · refused · confidently wrong · leaked.
+"""The battery, both paths, four outcomes: correct · refused · confidently wrong · leaked.
 
 The graph path is the design: each question asked through the resolver, as its
 persona, bound to a template, and scored mechanically against the truth.
 
-The vector path is the ordinary way: the same words, the top five passages over
-the whole index with no access decision, and a model composing an answer from
-them. Composing and judging need a model, so their results are a committed
-fixture (`make eval-live` regenerates it with a key); retrieval is re-run every
-time, and an answer composed over different passages is reported stale, not
-reused.
+The vector path is the ordinary way: the same words, the top five passages from
+the index filtered by a document-level ACL — each passage's own matter against
+the matters the persona may see, as a DMS-synced ACL would — and a model
+composing an answer from them. The same retrieval with no filter at all is
+re-run for its leak count, for continuity with the first comparison.
+Composing and judging need a model, so their results are a committed fixture
+(`make eval-live` regenerates it with a key); retrieval is re-run every time,
+and an answer composed over different passages is reported stale, not reused.
 
 Precedence, for both paths: leaked > confidently wrong > refused > correct. A
 leak on the vector path means a passage from a matter the persona is walled from
-was put in front of the model on their behalf — whether or not it repeated it.
-docs/decisions/0025.
+— or from a document citing one (ADR 0028) — was put in front of the model on
+their behalf, whether or not it repeated it. docs/decisions/0025.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ import yaml
 from ..client import ResolverClient
 from ..ingest import documents as documents_mod
 from ..ingest import estate as estate_mod
-from .leak import _scan, derived_closure, expected_denials
+from .leak import _scan, derived_closure, doc_matters, expected_denials, walled_documents
 from .truth import Truth, World
 
 OUTCOMES = ("correct", "refused", "confidently wrong", "leaked")
@@ -52,6 +54,7 @@ class Row:
     vector: Score
     graph_trace: str = ""
     passages: list[str] = field(default_factory=list)
+    unfiltered_leaked: bool = False  # the same question with no filter at all
 
 
 # ── the graph path ───────────────────────────────────────────────────────────
@@ -115,8 +118,10 @@ def score_graph(truth: Truth, response: dict, denied: set[str], tokens: list[str
         return Score("correct" if got == expected else "confidently wrong")
 
     if truth.kind == "documents":
+        # A document citing a walled matter is withheld like the matter (ADR 0028).
         got = {r.get("docId") for r in rows}
-        expected = set(truth.rows[visible[0]]) if visible else set()
+        expected = {d for d in (truth.rows[visible[0]] if visible else [])
+                    if not set(truth.cites.get(d, [])) & denied}
         return Score("correct" if got == expected else "confidently wrong")
     return Score("confidently wrong", f"unscored truth kind {truth.kind}")
 
@@ -183,10 +188,20 @@ def compose_and_judge(question: str, passages: list[dict], truth: Truth) -> dict
     return {"answer": answer, **graded, "model": os.environ.get("TKG_MODEL", "claude-opus-5-5")}
 
 
-def score_vector(passages: list[dict], denied: set[str], fixture: dict | None) -> Score:
-    walled = sorted({p["matter_id"] for p in passages if p["matter_id"] in denied})
+def leaked_passages(passages: list[dict], denied: set[str],
+                    matters_of: dict[str, set[str]] | None = None) -> list[str]:
+    """Passages that depend on a walled matter — filed on one, or citing one per the
+    manifest. Mechanical; no judge."""
+    matters_of = matters_of or {}
+    return sorted(p["doc_id"] for p in passages
+                  if matters_of.get(p["doc_id"], {p["matter_id"]}) & denied)
+
+
+def score_vector(passages: list[dict], denied: set[str], fixture: dict | None,
+                 matters_of: dict[str, set[str]] | None = None) -> Score:
+    walled = leaked_passages(passages, denied, matters_of)
     if walled:
-        return Score("leaked", f"walled passages from {', '.join(walled)} were in the context")
+        return Score("leaked", f"walled passages ({', '.join(walled)}) were in the context")
     if fixture is None:
         return Score("not run", "no composed answer yet — make eval-live")
     if fixture.get("passages") != [p["chunk_id"] for p in passages]:
@@ -199,7 +214,7 @@ def score_vector(passages: list[dict], denied: set[str], fixture: dict | None) -
 # ── the run ──────────────────────────────────────────────────────────────────
 def run(cfg, console, live: bool = False) -> list[Row]:
     from ..access.compile import read_records
-    from ..index import Embedder, Index
+    from ..index import DOC_ACL, Embedder, Index
 
     battery = yaml.safe_load((cfg.config_dir / "battery.yaml").read_text())["questions"]
     config = estate_mod.load_config(cfg.config_dir / "estate.yaml")
@@ -216,15 +231,17 @@ def run(cfg, console, live: bool = False) -> list[Row]:
     if fixture_path.exists():
         fixtures = {r["id"]: r for r in map(json.loads, fixture_path.read_text().splitlines())}
     index, embed = Index(cfg.index_url), Embedder()
+    matters_of = doc_matters(docs)
+    every = sorted({m for ms in matters_of.values() for m in ms})
 
     rows: list[Row] = []
     for q in battery:
         persona = q["persona"]
         denied = expected_denials(barriers, personas[persona], records)
-        doc_tokens = [t for d in docs if d.matter in denied
-                      for t in (d.doc_id, f"g:doc/{d.doc_id}")]
+        doc_tokens = [t for d in sorted(walled_documents(matters_of, denied))
+                      for t in (d, f"g:doc/{d}")]
         tokens = sorted(denied) + sorted(derived_closure(facts, denied)) + doc_tokens
-        truth = world.compute(q["truth"])
+        truth = world.compute(q["truth"], denied)
 
         g = q["graph"]
         response = ResolverClient(cfg.resolver_url, cfg.secrets_dir, persona).ask(
@@ -232,7 +249,12 @@ def run(cfg, console, live: bool = False) -> list[Row]:
             g.get("terms") or [])
         graph = score_graph(truth, response, denied, tokens)
 
-        hits = index.search(q["question"], embed([q["question"]])[0], None, k=5)
+        # The fairer baseline: the DMS already filters, by each passage's own matter.
+        # Who may see what comes from the same independent computation as the suite.
+        vector_q = embed([q["question"]])[0]
+        permitted = [m for m in every if m not in denied]
+        hits = index.search(q["question"], vector_q, permitted, k=5, mode=DOC_ACL)
+        unfiltered = index.search(q["question"], vector_q, None, k=5)
         fixture = fixtures.get(q["id"])
         if live:
             # Composed even where the context already crossed a wall — so the report
@@ -240,9 +262,10 @@ def run(cfg, console, live: bool = False) -> list[Row]:
             fixture = {"id": q["id"], "passages": [h["chunk_id"] for h in hits],
                        **compose_and_judge(q["question"], hits, truth)}
             fixtures[q["id"]] = fixture
-        vector = score_vector(hits, denied, fixture)
+        vector = score_vector(hits, denied, fixture, matters_of)
         rows.append(Row(q["id"], persona, q["kind"], q["question"], truth, graph, vector,
-                        response.get("trace", ""), [h["chunk_id"] for h in hits]))
+                        response.get("trace", ""), [h["chunk_id"] for h in hits],
+                        bool(leaked_passages(unfiltered, denied, matters_of))))
         console.print(f"{q['id']} {persona:<6} {q['kind']:<9} graph: {graph.outcome:<18} "
                       f"vector: {vector.outcome}")
     if live:
@@ -262,28 +285,35 @@ def summary(rows: list[Row], path: str, kind: str | None = None) -> dict[str, in
 
 def render(rows: list[Row]) -> str:
     g, v = summary(rows, "graph"), summary(rows, "vector")
+    unfiltered = sum(1 for r in rows if r.unfiltered_leaked)
     lines = [
-        "# Evaluation — thirty questions, both paths",
+        f"# Evaluation — {len(rows)} questions, both paths",
         "",
         "Generated by `make eval`. Every question has a known answer, computed from the",
         "estate in Python — never from the graph being scored. Asked two ways:",
         "",
         "- **graph** — through the resolver, as the persona, bound to a template;",
         "  scored mechanically.",
-        "- **vector** — the same words, top-5 passages over the whole index, no access",
-        "  decision; a model composes the answer and a model grades it against the truth",
-        "  (committed fixture, `make eval-live` regenerates).",
+        "- **vector** — the same words, top-5 passages from the index filtered by a",
+        "  document-level ACL: each passage's own matter against the matters the persona",
+        "  may see, as a DMS-synced ACL would. A model composes the answer and a model",
+        "  grades it against the truth (committed fixture, `make eval-live` regenerates).",
         "",
         "Precedence: leaked > confidently wrong > refused > correct. On the vector path",
-        "*leaked* means a passage from a matter the persona is walled from was put in front",
-        "of the model on their behalf. The estate is synthetic; so are the documents.",
+        "*leaked* means a passage from a matter the persona is walled from — or from a",
+        "document citing one — was put in front of the model on their behalf. The estate",
+        "is synthetic; so are the documents.",
         "",
         "| path | correct | refused | confidently wrong | **leaked** | not run |",
         "|---|---|---|---|---|---|",
         f"| graph-grounded | {g['correct']} | {g['refused']} | {g['confidently wrong']} | "
         f"**{g['leaked']}** | {g['not run'] + g['stale']} |",
-        f"| vector-only | {v['correct']} | {v['refused']} | {v['confidently wrong']} | "
-        f"**{v['leaked']}** | {v['not run'] + v['stale']} |",
+        f"| vector, document-level ACL | {v['correct']} | {v['refused']} | "
+        f"{v['confidently wrong']} | **{v['leaked']}** | {v['not run'] + v['stale']} |",
+        "",
+        f"The same retrieval with **no filter at all** — the first comparison — put walled "
+        f"passages in front of the model on **{unfiltered}** of {len(rows)} questions "
+        f"(retrieval only; not composed).",
         "",
         "## By kind of question",
         "",
@@ -304,13 +334,14 @@ def render(rows: list[Row]) -> str:
         "",
         "## Per question",
         "",
-        "| id | persona | kind | graph | vector | note |",
-        "|---|---|---|---|---|---|",
+        "| id | persona | kind | graph | vector (doc ACL) | no filter | note |",
+        "|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         note = "; ".join(x for x in (r.graph.note, r.vector.note) if x)
         lines.append(f"| {r.id} | {r.persona} | {r.kind} | {r.graph.outcome} | "
-                     f"{r.vector.outcome} | {note.replace('|', '/')} |")
+                     f"{r.vector.outcome} | {'leaked' if r.unfiltered_leaked else '—'} | "
+                     f"{note.replace('|', '/')} |")
     return "\n".join(lines) + "\n"
 
 
