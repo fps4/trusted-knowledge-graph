@@ -28,14 +28,15 @@ def test_every_outcome_in_a_document_is_the_true_one(world):
     for d in docs:
         for f in d.facts:
             if f["predicate"] == "hadOutcome":
-                assert f["object"] == f"gl:outcome/{est.outcomes[d.matter]}"
+                assert f["object"] == f"gl:outcome/{est.outcomes[f['subject']]}"
 
 
 def test_an_open_matter_has_no_outcome_anywhere(world):
     _, est, docs = world
     assert "M-2024-0286" not in est.outcomes
-    assert not [f for d in docs if d.matter == "M-2024-0286" for f in d.facts
-                if f["predicate"] == "hadOutcome"]
+    # A note filed on it states another matter's outcome — never its own.
+    assert not [f for d in docs for f in d.facts
+                if f["predicate"] == "hadOutcome" and f["subject"] == "M-2024-0286"]
 
 
 def test_the_demo_matters_carry_what_the_scenes_need(world):

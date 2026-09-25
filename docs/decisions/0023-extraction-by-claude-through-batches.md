@@ -10,7 +10,7 @@ review state, and it must be measurable. The demo must run offline.
 ## Decision
 
 - One request per document through the **Message Batches API** (half price; this is
-  fixture generation, not a request path), model `claude-opus-5` at low effort,
+  fixture generation, not a request path), model `claude-opus-5-5` at low effort,
   configurable by `TKG_MODEL`.
 - **Structured output** whose predicate field is an enum of exactly the predicates
   the ontology lets a fact carry: an unknown predicate cannot be expressed. The

@@ -27,11 +27,15 @@ PREDICATES = {
     "inJurisdiction": "the law the matter concerns (object: one of the jurisdictions listed)",
     "workedOn": "this person worked on the matter (object: full name)",
     "hadOutcome": "how the matter ended (object: one of the outcomes listed)",
+    "citesMatter": "the document's matter cites another of the firm's matters, e.g. as "
+                   "precedent (object: that matter's reference, like M-2020-0001)",
 }
 
 SYSTEM = """You extract facts from one document of a law firm's document management \
-system, for a knowledge graph. Every fact is about the matter the document belongs \
-to; its reference is given, and is the subject of every fact.
+system, for a knowledge graph. A fact is about the matter the document belongs to; \
+its reference is given, and is the subject unless you say otherwise. When the \
+document states something about another matter it cites by reference, give that \
+reference as the fact's subject.
 
 Extract only what the document states. Do not infer from what is typical. If the \
 document does not state something, do not extract it — a missing fact is correct, \
@@ -39,6 +43,7 @@ an invented one is not.
 
 For each fact give:
 - predicate: one of the allowed predicates
+- subject: only for a fact about a cited matter — its reference, as written
 - object: for people and organisations, the name exactly as the document writes it; \
 for matter types, jurisdictions and outcomes, the identifier from the lists below
 - confidence: 0 to 1 — how clearly the document states it
@@ -63,6 +68,9 @@ def schema(cfg: dict) -> dict:
                     "type": "object",
                     "properties": {
                         "predicate": {"type": "string", "enum": sorted(PREDICATES)},
+                        # Optional: a cited matter's reference. Absent means the
+                        # document's own matter; linking checks it is a cited one.
+                        "subject": {"type": "string"},
                         "object": {"type": "string"},
                         "confidence": {"type": "number"},
                         "evidence": {"type": "string"},
@@ -103,20 +111,30 @@ def request_params(cfg: dict, model: str, matter: str, text: str) -> dict:
     }
 
 
-def run_batch(items: list[tuple[str, str, str]], cfg: dict, out: Path, log) -> dict:
-    """items: (doc_id, matter, pdf_text). Writes one JSON line per document."""
+def run_batch(items: list[tuple[str, str, str]], cfg: dict, out: Path, log,
+              resume: str | None = None) -> dict:
+    """items: (doc_id, matter, pdf_text). Writes one JSON line per document.
+
+    `resume` collects an existing batch instead of submitting a new one — a batch
+    keeps running on the server if this process is interrupted, and paying twice for
+    the same documents is not a recovery strategy.
+    """
     import anthropic
     from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
     from anthropic.types.messages.batch_create_params import Request
 
-    model = os.environ.get("TKG_MODEL", "claude-opus-5")
+    model = os.environ.get("TKG_MODEL", "claude-opus-5-5")
     client = anthropic.Anthropic()
-    batch = client.messages.batches.create(requests=[
-        Request(custom_id=doc_id,
-                params=MessageCreateParamsNonStreaming(**request_params(cfg, model, matter, text)))
-        for doc_id, matter, text in items
-    ])
-    log(f"batch {batch.id} — {len(items)} documents, model {model}")
+    if resume:
+        batch = client.messages.batches.retrieve(resume)
+        log(f"resuming batch {batch.id}")
+    else:
+        batch = client.messages.batches.create(requests=[
+            Request(custom_id=doc_id, params=MessageCreateParamsNonStreaming(
+                **request_params(cfg, model, matter, text)))
+            for doc_id, matter, text in items
+        ])
+        log(f"batch {batch.id} — {len(items)} documents, model {model}")
     while True:
         batch = client.messages.batches.retrieve(batch.id)
         if batch.processing_status == "ended":

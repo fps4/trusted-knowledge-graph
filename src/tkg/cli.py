@@ -194,8 +194,10 @@ def load(skip_seed: bool = typer.Option(False, "--skip-seed")) -> None:
                       os.environ["MINIO_ROOT_PASSWORD"])
     step(8, f"document store: {pipeline.upload(store, docs, pdfs)} PDFs, keyed by matter")
 
-    chunks, _ = pipeline.index(cfg.index_url, docs, texts, cfg.data_dir / "generated")
-    step(9, f"index: {chunks} passages, BM25 and {384}-d embeddings, filterable by matter")
+    chunks, _ = pipeline.index(cfg.index_url, docs, texts, cfg.data_dir / "generated",
+                               stats.cites)
+    step(9, f"index: {chunks} passages, BM25 and {384}-d embeddings, filterable by every "
+         f"matter a passage depends on — {len(stats.cites)} cite another matter")
 
     table = Table(show_header=True, header_style="dim")
     table.add_column("named graph")
@@ -235,6 +237,7 @@ def documents() -> None:
 def extract(
     limit: int = typer.Option(0, help="only the first N documents (0 = all)"),
     missing: bool = typer.Option(False, help="only documents not yet in the fixture"),
+    resume: str = typer.Option("", help="collect an existing batch by id, not a new one"),
 ) -> None:
     """Run extraction through Claude (Batches API) and write the fixture. Needs a key."""
     import json as _json
@@ -255,17 +258,20 @@ def extract(
         docs = [d for d in docs if d.doc_id not in have]
     if limit:
         docs = docs[:limit]
-    if not docs:
+    if not docs and not resume:
         console.print("nothing to extract")
         return
-    items = [(d.doc_id, d.matter, dms.pdf_text(dms.render_pdf(d))) for d in docs]
+    items = [] if resume else [(d.doc_id, d.matter, dms.pdf_text(dms.render_pdf(d)))
+                               for d in docs]
     tmp = cfg.data_dir / "generated" / "extraction-batch.jsonl"
-    usage = extract_mod.run_batch(items, config, tmp, lambda m: console.print(f"[dim]{m}[/]"))
+    usage = extract_mod.run_batch(items, config, tmp, lambda m: console.print(f"[dim]{m}[/]"),
+                                  resume or None)
     merged = {**have, **extract_mod.read(tmp)}
     cfg.extraction_path.write_text(
         "\n".join(_json.dumps(merged[k], sort_keys=True, ensure_ascii=False)
                   for k in sorted(merged)) + "\n", encoding="utf-8")
-    console.print(f"[green]extracted {len(items)}[/] · tokens in {usage['input']:,} "
+    done = len(extract_mod.read(tmp))
+    console.print(f"[green]extracted {done}[/] · tokens in {usage['input']:,} "
                   f"(cache reads {usage['cache_read']:,}) · out {usage['output']:,} · "
                   f"refused {usage['refused']} · errored {usage['errored']}")
 
@@ -300,16 +306,35 @@ def extraction_report() -> None:
 def naive(
     text: str = typer.Argument(..., help="a question, as someone would type it"),
     k: int = typer.Option(5),
+    filter_: str = typer.Option("none", "--filter",
+                                help="none · doc-acl · lineage (the latter two need --as)"),
+    as_: str = typer.Option("", "--as", help="whose permitted matters to filter by"),
 ) -> None:
-    """The vector-only comparison: top-k over every passage, no access decision at all.
+    """The comparison: top-k over the index, with no filter, a document-level ACL, or
+    the resolver's lineage filter — never through the resolver, never audited.
 
-    Not part of the system — the thing the system is measured against. It is how a
-    retrieval layer built by a service account over the whole corpus behaves.
+    `none` is how a retrieval layer built by a service account behaves; `doc-acl` is
+    "the DMS already filters" — the passage's own matter. docs/decisions/0028.
     """
-    from .index import Embedder, Index
+    from .access.compile import read_records
+    from .eval.leak import expected_denials
+    from .index import NONE, Embedder, Index
+    from .ingest import documents as documents_mod
 
     cfg = _settings()
-    hits = Index(cfg.index_url).search(text, Embedder()([text])[0], None, k=k)
+    permitted = None
+    if filter_ != NONE:
+        if not as_:
+            console.print("[red]--filter doc-acl|lineage needs --as <persona>[/]")
+            raise typer.Exit(2)
+        barriers = yaml.safe_load((cfg.config_dir / "barriers.yaml").read_text())
+        personas = {p["id"]: p for p in
+                    yaml.safe_load((cfg.config_dir / "people.yaml").read_text())["personas"]}
+        denied = expected_denials(barriers, personas[as_], read_records(cfg.db_dsn))
+        every = {d.matter for d in documents_mod.read(cfg.documents_path)}
+        permitted = sorted(every - denied)
+    hits = Index(cfg.index_url).search(text, Embedder()([text])[0], permitted, k=k,
+                                       mode=filter_)
     table = Table(show_header=True, header_style="dim")
     for col in ("doc", "matter", "type", "score", "passage"):
         table.add_column(col)
@@ -740,7 +765,7 @@ def eval_cmd(
     live: bool = typer.Option(False, help="compose and judge the vector path with Claude"),
     write_baseline: bool = typer.Option(False, "--baseline", help="record this run as the bar"),
 ) -> None:
-    """Thirty questions, both paths → reports/eval.md. The graph path needs no model."""
+    """The battery, both paths → reports/eval.md. The graph path needs no model."""
     from .eval import battery
 
     cfg = _settings()
@@ -782,9 +807,12 @@ def gate() -> None:
     checks.append(("barrier suite: zero leaks, zero wrong refusals, doors hold",
                    not result.leaks and not result.problems
                    and all(ok for *_, ok in result.doors), ""))
-    checks.append(("OPA and the document store agree on every persona and document",
+    checks.append(("the graph is never broader than the document store, and agrees with "
+                   "it exactly where a document cites nothing",
                    not result.store.disagreements,
-                   f"{len(result.store.disagreements)} disagreements"))
+                   f"{len(result.store.disagreements)} disagreements · the store is weaker on "
+                   f"{len(result.store.weaker_docs)} documents citing walled matters "
+                   "(a finding, ADR 0028)"))
     checks.append(("stolen document ids yield nothing",
                    result.store.stolen_refused == result.store.stolen_attempts, ""))
     checks.append(("no denied identifier in clear in the decision record",

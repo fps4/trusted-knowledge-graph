@@ -266,3 +266,57 @@ def test_the_subject_question_finds_who_was_shown_it_by_lineage(make):
     resolver.ask("mara", "CQ-08", {"person": "P-0101"})
     seen = resolver.audit_subject("risk", SHUT)
     assert any("by lineage" in h for s in seen["shown"] for h in s["how"])
+
+
+# ── passages depend on every matter they cite (ADR 0028) ────────────────────────
+class FakeIndex:
+    def __init__(self):
+        self.calls = []
+
+    def exists(self):
+        return True
+
+    def search(self, text, vector, matters, k=5, *, scope=None, mode="lineage"):
+        self.calls.append({"matters": matters, "scope": scope, "mode": mode})
+        return []
+
+
+def test_a_passage_must_be_from_the_question_and_depend_only_on_what_is_permitted(make):
+    resolver, *_ = make()
+    resolver.index, resolver.embed = FakeIndex(), lambda texts: [[0.0] for _ in texts]
+    resolver._search("sanne", "q", [OPEN], ["M-2021-0001"])
+    call = resolver.index.calls[-1]
+    assert call["scope"] == [OPEN] and call["matters"] == sorted([OPEN, "M-2021-0001"])
+    assert call["mode"] == "lineage"
+
+
+def test_the_permit_carries_the_cited_matters_and_passages_uses_them(make):
+    from tkg.access import permit as permit_mod
+
+    resolver, *_ = make()
+    resolver.index, resolver.embed = FakeIndex(), lambda texts: [[0.0] for _ in texts]
+    token, _ = permit_mod.mint("sanne", "t-00000001", [OPEN], [], resolver.permit_key,
+                               cited=["M-2021-0001"])
+    assert permit_mod.verify(token, resolver.permit_key, "sanne")["cited"] == ["M-2021-0001"]
+    assert resolver.passages("sanne", token, "q")["outcome"] == "answered"
+    call = resolver.index.calls[-1]
+    assert call["scope"] == [OPEN] and set(call["matters"]) == {OPEN, "M-2021-0001"}
+
+
+def test_a_permit_from_before_citations_still_works(make):
+    import jwt
+
+    resolver, *_ = make()
+    resolver.index, resolver.embed = FakeIndex(), lambda texts: [[0.0] for _ in texts]
+    old = jwt.encode({"sub": "sanne", "trace": "t-1", "matters": [OPEN], "graphs": [],
+                      "aud": "tkg-passages", "exp": 9_999_999_999}, resolver.permit_key,
+                     algorithm="HS256")
+    assert resolver.passages("sanne", old, "q")["outcome"] == "answered"
+    assert resolver.index.calls[-1]["matters"] == [OPEN]
+
+
+def test_the_record_of_passages_names_every_matter_they_depend_on():
+    from tkg.resolver.engine import _passage_matters
+
+    hits = [{"matter_id": OPEN, "matters": [OPEN, SHUT]}, {"matter_id": "M-2021-0001"}]
+    assert _passage_matters(hits) == sorted([OPEN, SHUT, "M-2021-0001"])

@@ -94,3 +94,73 @@ def test_the_candidate_query_reaches_but_selects_identifiers_only():
 def test_a_question_that_reaches_no_matter_or_derived_graph_has_no_candidates():
     t = TEMPLATES["CQ-04"]
     assert t.candidates(t.check_slots({})) == ""
+
+
+# ── CQ-10 withholds a document whose extracted graph was not permitted (ADR 0028) ─
+def test_the_guard_withholds_nothing_in_the_candidate_query():
+    t = TEMPLATES["CQ-10"]
+    query = t.candidates(t.check_slots({"matter": "M-2024-0286"}))
+    assert "FILTER NOT EXISTS { GRAPH ?xg { ?xf ssf:fromDocument ?doc } FILTER (false) }" in query
+    assert "?xg" not in query.split("WHERE")[0]  # reaches nothing; ?fg is the candidate
+
+
+def test_the_guard_withholds_a_document_whose_graph_was_not_permitted():
+    t = TEMPLATES["CQ-10"]
+    ok = iri.doc_graph("DOC-0585")
+    query = t.bind(t.check_slots({"matter": "M-2024-0286"}),
+                   [iri.matter("M-2024-0286")], [ok])
+    assert f"FILTER (?xg NOT IN (<{ok}>))" in query
+    # Nothing permitted: any document with an extracted graph is withheld.
+    bare = t.bind(t.check_slots({"matter": "M-2024-0286"}), [iri.matter("M-2024-0286")], [])
+    assert "FILTER NOT EXISTS { GRAPH ?xg { ?xf ssf:fromDocument ?doc }  }" in bare
+
+
+def test_a_guard_is_not_a_derived_graph_the_template_reaches():
+    assert TEMPLATES["CQ-10"].derived == ("fg",)
+
+
+def test_cq10_run_over_a_real_dataset_withholds_only_the_note_citing_a_walled_matter():
+    """The bound query, executed by rdflib over the documents' own graphs."""
+    from pathlib import Path
+
+    from rdflib import Dataset
+
+    from tkg.ingest import estate as estate_mod
+    from tkg.ingest.docgraph import Lookups, dms_metadata, doc_facts
+    from tkg.ingest.documents import Document
+
+    cfg = estate_mod.load_config(Path("/app/config/estate.yaml"))
+    lookups = Lookups.from_estate(estate_mod.build(cfg, 20260924), cfg)
+    host = "M-2024-0286"
+    letter = Document("DOC-9001", host, "engagement-letter", "2024-01-01", "t", "p", "")
+    note = Document("DOC-9002", host, "knowledge-note", "2025-01-01", "t", "p", "")
+    rows = {
+        letter.doc_id: {"model": "m", "facts": [
+            {"predicate": "ledBy", "object": "Mara de Vries", "confidence": 1, "evidence": ""}]},
+        note.doc_id: {"model": "m", "facts": [
+            {"predicate": "citesMatter", "object": "M-2022-0117", "confidence": 1,
+             "evidence": ""}]},
+    }
+    facts, _ = doc_facts([letter, note], rows, {}, lookups)
+
+    class Snapshot(Dataset):
+        # rdflib's in-memory store adds contexts while a nested GRAPH ?x is being
+        # iterated; iterating a snapshot keeps the evaluation honest and stable.
+        def contexts(self, triple=None):
+            return iter(list(super().contexts(triple)))
+
+    ds = Snapshot(default_union=False)
+    for source in (dms_metadata([letter, note]), facts):
+        for quad in source.quads((None, None, None, None)):
+            ds.add(quad)
+    t = TEMPLATES["CQ-10"]
+    slots = t.check_slots({"matter": host})
+
+    def listed(permitted_graphs):
+        query = t.bind(slots, [iri.matter(host)], permitted_graphs)
+        return {str(r["docId"]) for r in ds.query(query)}
+
+    both = [iri.doc_graph(letter.doc_id), iri.doc_graph(note.doc_id)]
+    assert listed(both) == {"DOC-9001", "DOC-9002"}
+    # Walled from M-2022-0117: the note's graph is denied by lineage, so the note goes.
+    assert listed([iri.doc_graph(letter.doc_id)]) == {"DOC-9001"}

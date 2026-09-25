@@ -4,7 +4,7 @@ AS      ?= mara
 
 .DEFAULT_GOAL := help
 .PHONY: help init build up down reset load policy demo ask explain doctor cq test lint \
-        leak verify-audit reset-audit boundary up-stores mcp-configs term audit glossary reports sali documents extract extraction naive eval eval-live baseline gate review ps logs
+        leak verify-audit reset-audit boundary web-links up-stores mcp-configs term audit glossary reports sali documents extract extraction naive eval eval-live baseline gate review ps logs
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-13s\033[0m %s\n", $$1, $$2}'
@@ -15,12 +15,14 @@ init: ## .env, per-persona keys, audit salt, one MCP config per persona (never o
 mcp-configs: ## MCP configs for Claude Code on this machine; for a remote host: make mcp-configs HOST=ds1
 	@./scripts/mcp-configs.sh $(HOST)
 
-build: init ## Build the images, including the per-persona MCP image
+build: init ## Build the images, including the per-persona MCP image and the demo screen
 	$(COMPOSE) --profile mcp --profile jobs build
 
-up: init ## Start postgres, fuseki, opa and the resolver, and wait for health
+WEB := web-mara web-sanne web-kim web-risk
+
+up: init ## Start the stores, opa, the resolver and one demo screen per person, and wait for health
 	@test -f build/opa/data.json || (echo "no compiled policy yet — run: make up-stores load policy" && exit 1)
-	$(COMPOSE) up -d --wait postgres fuseki opa minio opensearch resolver
+	$(COMPOSE) up -d --wait postgres fuseki opa minio opensearch resolver $(WEB)
 
 up-stores: init ## Start only the stores (first run, before a policy has been compiled)
 	$(COMPOSE) up -d --wait postgres fuseki minio opensearch
@@ -65,15 +67,15 @@ documents: ## Regenerate the firm's documents and the gold-set manifest from the
 	$(JOB) documents
 
 extract: ## Extraction through Claude (Batches API) → data/fixtures/extraction.jsonl — needs ANTHROPIC_API_KEY in .env
-	$(JOB) extract $(if $(LIMIT),--limit $(LIMIT)) $(if $(MISSING),--missing)
+	$(JOB) extract $(if $(LIMIT),--limit $(LIMIT)) $(if $(MISSING),--missing) $(if $(RESUME),--resume $(RESUME))
 
 extraction: ## Precision and recall against the manifest → reports/extraction.md
 	$(JOB) extraction-report
 
-naive: ## The vector-only comparison, no access decision: make naive Q="who led the AFM settlement"
-	$(JOB) naive "$(Q)"
+naive: ## The comparison, no resolver: make naive Q="what precedent on AFM settlements" [FILTER=doc-acl AS=sanne]
+	$(JOB) naive "$(Q)" --filter $(or $(FILTER),none) $(if $(FILTER),--as $(AS))
 
-eval: ## Thirty questions, both paths → reports/eval.md (graph live; vector from fixture)
+eval: ## The battery, both paths → reports/eval.md (graph live; vector from fixture)
 	$(JOB) eval
 
 eval-live: ## Regenerate the vector path's composed answers and verdicts with Claude — needs ANTHROPIC_API_KEY
@@ -111,6 +113,15 @@ boundary: ## Prove the MCP container reaches the resolver and nothing else
 	  then echo "$$h  REACHABLE — the boundary is broken"; exit 1; \
 	  else echo "$$h  not reachable"; fi; \
 	done
+
+web-links: ## The demo screens' URLs, and the ssh tunnel to reach them from another machine
+	@set -a; . ./.env; set +a; \
+	m=$${TKG_PORT_WEB_MARA:-3101}; s=$${TKG_PORT_WEB_SANNE:-3102}; k=$${TKG_PORT_WEB_KIM:-3103}; \
+	r=$${TKG_PORT_WEB_RISK:-3104}; d=$${TKG_PORT_MINIO:-9100}; \
+	echo "ssh -N -L $$m:127.0.0.1:$$m -L $$s:127.0.0.1:$$s -L $$k:127.0.0.1:$$k -L $$r:127.0.0.1:$$r -L $$d:127.0.0.1:$$d $(or $(HOST),<host>)"; \
+	echo "  Mara   http://127.0.0.1:$$m"; echo "  Sanne  http://127.0.0.1:$$s"; \
+	echo "  Kim    http://127.0.0.1:$$k"; echo "  Risk   http://127.0.0.1:$$r"; \
+	echo "  ($$d is the document store: the PDF links are signed for it)"
 
 doctor: ## Check every service is reachable
 	$(JOB) doctor
