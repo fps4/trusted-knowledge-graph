@@ -92,6 +92,10 @@ ssf:hadOutcome   a owl:ObjectProperty ; rdfs:label "had outcome" ;
     rdfs:domain ssf:Matter ; rdfs:range skos:Concept .
 ssf:hasExpertise a owl:ObjectProperty ; rdfs:label "has expertise in" ;
     rdfs:domain ssf:Person ; rdfs:range skos:Concept .
+# A matter's document cites another matter — a precedent note naming a file number.
+# The document's graph is then derived from both: docs/decisions/0028.
+ssf:citesMatter  a owl:ObjectProperty ; rdfs:label "cites matter" ;
+    rdfs:domain ssf:Matter ; rdfs:range ssf:Matter .
 
 # A named graph that was derived from something, described in g:prov. Its
 # lineage is what decides who may see it: docs/decisions/0008.

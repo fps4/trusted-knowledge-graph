@@ -6,6 +6,12 @@ graph, g:doc/<docId>, derived from the document and from its matter, so a fact
 extracted from a restricted matter's document is restricted by lineage whatever
 it is about. docs/decisions/0008.
 
+A document that cites another matter — a precedent note naming a file number —
+is derived from that matter too: its graph inherits the restrictions of every
+matter it cites, as well as its own. A fact may be *about* a cited matter (its
+outcome, say), never about a matter the document does not cite.
+docs/decisions/0028.
+
 Linking extracted strings to identifiers is deterministic and conservative:
 an exact full name, an exact client name, a vocabulary identifier. Anything else
 stays unlinked, with the reason — a surname shared by two colleagues, a client
@@ -26,6 +32,7 @@ from .. import iri
 from ..dms import key as object_key
 from .documents import Document
 from .estate import Estate
+from .extract import PREDICATES
 
 SSF = Namespace(iri.FIRM)
 PROV = Namespace("http://www.w3.org/ns/prov#")
@@ -42,6 +49,7 @@ class Lookups:
     clients: dict[str, str]  # normalised PMS name -> client ref
     crm_names: set[str]  # normalised CRM account names
     vocab: dict[str, dict[str, str]]  # scheme -> id or normalised label -> iri
+    matters: set[str] = field(default_factory=set)  # every matter reference
 
     @classmethod
     def from_estate(cls, est: Estate, cfg: dict) -> Lookups:
@@ -65,7 +73,13 @@ class Lookups:
             clients={_norm(c.name): c.client_ref for c in est.clients},
             crm_names={_norm(a.name) for a in est.accounts},
             vocab=vocab,
+            matters={m.matter_ref for m in est.matters},
         )
+
+    def matter(self, ref: str) -> str | None:
+        """An exact matter reference, or nothing. A file number is not guessed at."""
+        ref = ref.strip().upper()
+        return ref if ref in self.matters else None
 
     def link(self, predicate: str, obj: str) -> tuple[str | None, str]:
         name = _norm(obj)
@@ -80,6 +94,9 @@ class Lookups:
             if name in self.crm_names:
                 return None, "CRM spelling — identity not resolved"
             return None, "organisation not found"
+        if predicate == "citesMatter":
+            ref = self.matter(obj)
+            return (iri.matter(ref), "linked") if ref else (None, "matter reference not found")
         target = self.vocab.get(predicate, {}).get(name)
         return (target, "linked") if target else (None, "not in the vocabulary")
 
@@ -89,17 +106,42 @@ class LinkStats:
     linked: int = 0
     unlinked: Counter = field(default_factory=Counter)
     rejected: Counter = field(default_factory=Counter)
+    cites: dict[str, list[str]] = field(default_factory=dict)  # doc id -> cited matters
 
 
 def linked_facts(doc: Document, row: dict, text: str, lookups: Lookups,
                  stats: LinkStats | None = None) -> list[dict]:
-    """Extracted facts for one document, with identifiers — or without, and why."""
+    """Extracted facts for one document, with identifiers — or without, and why.
+
+    Each fact's subject is a matter reference: the document's own, unless the fact
+    names a matter the document cites (a linked citesMatter from the same document).
+    Anything else is rejected: a document cannot tell us about a matter it does not
+    cite, and a citation cannot be about anything but the document's own matter.
+    """
+    facts = row.get("facts", [])
+    cited = set()
+    for f in facts:
+        own = lookups.matter(f.get("subject") or doc.matter) == doc.matter
+        if f["predicate"] == "citesMatter" and own:
+            ref = lookups.matter(f["object"])
+            if ref and ref != doc.matter:
+                cited.add(ref)
     out = []
-    for f in row.get("facts", []):
-        if f["predicate"] not in {"forClient", "ledBy", "matterType", "inJurisdiction",
-                                  "workedOn", "hadOutcome"}:
+    for f in facts:
+        if f["predicate"] not in PREDICATES:
             if stats:
                 stats.rejected["predicate not in the ontology"] += 1
+            continue
+        subject = doc.matter
+        if f.get("subject") and lookups.matter(f["subject"]) != doc.matter:
+            subject = lookups.matter(f["subject"])
+            if subject is None or subject not in cited or f["predicate"] == "citesMatter":
+                if stats:
+                    stats.rejected["subject is not the document's matter or one it cites"] += 1
+                continue
+        if f["predicate"] == "citesMatter" and lookups.matter(f["object"]) == doc.matter:
+            if stats:
+                stats.rejected["a document citing its own matter"] += 1
             continue
         target, why = lookups.link(f["predicate"], f["object"])
         if target is None:
@@ -110,7 +152,7 @@ def linked_facts(doc: Document, row: dict, text: str, lookups: Lookups,
             stats.linked += 1
         start = text.find(f["evidence"]) if f.get("evidence") else -1
         out.append({
-            "predicate": f["predicate"], "object": target,
+            "predicate": f["predicate"], "subject": subject, "object": target,
             "confidence": max(0.0, min(1.0, float(f["confidence"]))),
             "span": (start, start + len(f["evidence"])) if start >= 0 else None,
         })
@@ -147,7 +189,7 @@ def doc_facts(docs: list[Document], extraction: dict[str, dict], texts: dict[str
         for n, f in enumerate(facts, start=1):
             node = URIRef(iri.fact(f"{d.doc_id}-{n}"))
             graph.add((node, RDF.type, SSF.Fact))
-            graph.add((node, SSF.factSubject, URIRef(iri.matter(d.matter))))
+            graph.add((node, SSF.factSubject, URIRef(iri.matter(f["subject"]))))
             graph.add((node, SSF.factPredicate, SSF[f["predicate"]]))
             graph.add((node, SSF.factObject, URIRef(f["object"])))
             graph.add((node, SSF.confidence, Literal(Decimal(str(round(f["confidence"], 3))))))
@@ -160,6 +202,14 @@ def doc_facts(docs: list[Document], extraction: dict[str, dict], texts: dict[str
         prov.add((graph_iri, RDF.type, SSF.DerivedGraph))
         prov.add((graph_iri, PROV.wasDerivedFrom, URIRef(iri.document(d.doc_id))))
         prov.add((graph_iri, PROV.wasDerivedFrom, URIRef(iri.matter(d.matter))))
+        # A document is derived from every matter it cites: a precedent note filed on
+        # an open matter is walled wherever the matter it cites is. docs/decisions/0028.
+        cites = sorted({iri.matter_ref(f["object"]) for f in facts
+                        if f["predicate"] == "citesMatter"})
+        for ref in cites:
+            prov.add((graph_iri, PROV.wasDerivedFrom, URIRef(iri.matter(ref))))
+        if cites:
+            stats.cites[d.doc_id] = cites
         prov.add((graph_iri, PROV.wasAttributedTo, Literal(f"{row['model']} · {PIPELINE}")))
     return ds, stats
 

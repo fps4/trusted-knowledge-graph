@@ -27,11 +27,15 @@ PREDICATES = {
     "inJurisdiction": "the law the matter concerns (object: one of the jurisdictions listed)",
     "workedOn": "this person worked on the matter (object: full name)",
     "hadOutcome": "how the matter ended (object: one of the outcomes listed)",
+    "citesMatter": "the document's matter cites another of the firm's matters, e.g. as "
+                   "precedent (object: that matter's reference, like M-2020-0001)",
 }
 
 SYSTEM = """You extract facts from one document of a law firm's document management \
-system, for a knowledge graph. Every fact is about the matter the document belongs \
-to; its reference is given, and is the subject of every fact.
+system, for a knowledge graph. A fact is about the matter the document belongs to; \
+its reference is given, and is the subject unless you say otherwise. When the \
+document states something about another matter it cites by reference, give that \
+reference as the fact's subject.
 
 Extract only what the document states. Do not infer from what is typical. If the \
 document does not state something, do not extract it — a missing fact is correct, \
@@ -39,6 +43,7 @@ an invented one is not.
 
 For each fact give:
 - predicate: one of the allowed predicates
+- subject: only for a fact about a cited matter — its reference, as written
 - object: for people and organisations, the name exactly as the document writes it; \
 for matter types, jurisdictions and outcomes, the identifier from the lists below
 - confidence: 0 to 1 — how clearly the document states it
@@ -63,6 +68,9 @@ def schema(cfg: dict) -> dict:
                     "type": "object",
                     "properties": {
                         "predicate": {"type": "string", "enum": sorted(PREDICATES)},
+                        # Optional: a cited matter's reference. Absent means the
+                        # document's own matter; linking checks it is a cited one.
+                        "subject": {"type": "string"},
                         "object": {"type": "string"},
                         "confidence": {"type": "number"},
                         "evidence": {"type": "string"},
