@@ -166,6 +166,62 @@ services:
       opensearch: {condition: service_healthy}
     entrypoint: ["tkg"]
 
+  # The demo screen, one container per person, from one image. Each holds only its
+  # own key and joins only tkg_edge, like the MCP container: the resolver is the one
+  # service it can reach. No login and no persona switcher — the person is the
+  # container. Chat uses the Anthropic API when ANTHROPIC_API_KEY is set; guided
+  # mode needs no model. docs/decisions/0027.
+  web-mara: &web
+    build:
+      context: ./web
+      dockerfile: ../docker/web/Dockerfile
+    image: tkg-web:latest
+    user: "${TKG_UID:-0}:${TKG_GID:-0}"
+    environment:
+      TKG_PERSONA: mara
+      TKG_RESOLVER_URL: http://resolver:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5-5}
+    volumes:
+      - ./secrets/mara.key:/run/secrets/persona.key:ro
+    ports: ["127.0.0.1:${TKG_PORT_WEB_MARA:-3101}:3000"]
+    networks: [edge]
+    depends_on:
+      resolver: {condition: service_healthy}
+
+  web-sanne:
+    <<: *web
+    environment:
+      TKG_PERSONA: sanne
+      TKG_RESOLVER_URL: http://resolver:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5-5}
+    volumes:
+      - ./secrets/sanne.key:/run/secrets/persona.key:ro
+    ports: ["127.0.0.1:${TKG_PORT_WEB_SANNE:-3102}:3000"]
+
+  web-kim:
+    <<: *web
+    environment:
+      TKG_PERSONA: kim
+      TKG_RESOLVER_URL: http://resolver:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5-5}
+    volumes:
+      - ./secrets/kim.key:/run/secrets/persona.key:ro
+    ports: ["127.0.0.1:${TKG_PORT_WEB_KIM:-3103}:3000"]
+
+  web-risk:
+    <<: *web
+    environment:
+      TKG_PERSONA: risk
+      TKG_RESOLVER_URL: http://resolver:8080
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5-5}
+    volumes:
+      - ./secrets/risk.key:/run/secrets/persona.key:ro
+    ports: ["127.0.0.1:${TKG_PORT_WEB_RISK:-3104}:3000"]
+
   # Not a service: the image Claude Code starts, one container per persona, over
   # stdio. Built here so `make build` builds it; never started by compose.
   mcp:

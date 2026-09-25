@@ -25,6 +25,7 @@ assembled — and writes down what it decided.
 
 ```sh
 make build && make up-stores && make load && make policy   # first run
+make up          # the resolver and one demo screen per person — make web-links
 make demo        # the scenes, asked as the personas, through the resolver
 make reports     # eval, leak, glossary, audit and extraction reports from a fresh record
 make gate        # the deploy gate — non-zero on any failure
@@ -313,6 +314,40 @@ claude --strict-mcp-config --mcp-config mcp/sanne.json
 A single `.mcp.json` listing everyone would give one session every person's tools at
 once, which is exactly the boundary the demo is about — so there isn't one.
 
+## The demo UI
+
+One screen per person — `web-mara`, `web-sanne`, `web-kim`, `web-risk` — each a
+container holding only that person's key, on the network where the resolver is the
+only other service. No login and no switcher: the window is the person. `make up`
+starts them; `make web-links HOST=<host>` prints the tunnel and the URLs:
+
+```sh
+ssh -N -L 3101:127.0.0.1:3101 -L 3102:127.0.0.1:3102 -L 3103:127.0.0.1:3103 \
+       -L 3104:127.0.0.1:3104 -L 9100:127.0.0.1:9100 host
+# Mara http://127.0.0.1:3101 · Sanne :3102 · Kim :3103 · Risk :3104
+```
+
+9100 is the document store: the PDF links are signed by the resolver, with the
+person's own credentials, for that address — there is no route in the UI that
+fetches a document.
+
+- **Chat** — Claude through the Anthropic API (`claude-opus-5-5`, low effort), with
+  the MCP server's tools and instructions. Needs `ANTHROPIC_API_KEY` in `.env`.
+- **Guided** — pick a competency question, fill its slots, look words up in the
+  glossary, ask. No model, no key.
+- **Inspector**, for the selected answer: *Trace* (route and why, terms and their
+  owners, template, slots, policy version, trace id) · *Explain* (the rule, owner,
+  date, file; blocked directly vs by lineage) · *Sources* (PDFs, and passages under
+  the answer's permit) · *Lineage* (fact graph → document → matter; told facts →
+  who told them; spine → system of record and its mapping) · *Record* (the same
+  grounds, read back from the chain).
+- **Risk's screen** opens on the record: who was shown anything from a matter, what
+  a person saw, one trace in full — and whether the chain is intact, with its head
+  hash.
+
+Why it is built this way, and what it does not change about ADR 0011:
+[ADR 0027](docs/decisions/0027-the-demo-ui.md).
+
 ## Layout
 
 | | |
@@ -340,7 +375,8 @@ once, which is exactly the boundary the demo is about — so there isn't one.
 | `src/tkg/dms.py`, `src/tkg/index.py` | the document store and the index |
 | `src/tkg/ingest/` | estate, documents, extraction, linking, the load pipeline |
 | `src/tkg/eval/` | the barrier suite, the battery, truth, extraction scoring |
+| `web/`, `docker/web/` | the demo screen — one container per person, Next.js, a BFF that calls the resolver as that person |
 | `reports/` | `eval.md`, `leak.md`, `glossary.md`, `audit.md`, `baseline.json` — generated, never typed |
-| `docs/decisions/` | twenty-six ADRs, written before the code they justify — one still open |
+| `docs/decisions/` | twenty-seven ADRs, written before the code they justify — one still open |
 
 MIT.
