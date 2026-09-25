@@ -12,12 +12,12 @@ behind is. The estate is synthetic.
 | | |
 |---|---|
 | disclosure policy | `withheld-count` |
-| questions asked | 130 |
-| … where the persona is denied the matter | 56 |
+| questions asked | 160 |
+| … where the persona is denied the matter | 64 |
 | **leaked** | **0** |
 | wrong refusals (including over-refusals) | 0 |
 | doors behaving (permit, decision record) | 16 / 16 |
-| audit records checked for clear-text denied identifiers | 134 |
+| audit records checked for clear-text denied identifiers | 164 |
 | … found | 0 |
 | hash chain | intact |
 
@@ -25,21 +25,74 @@ behind is. The estate is synthetic.
 
 | rule | matter | persona | may see it | direct | second hop | lineage | aggregate |
 |---|---|---|---|---|---|---|---|
-| B-03 | M-2022-0117 | mara | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
-| B-03 | M-2022-0117 | sanne | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered-with-withheld | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-03 | M-2022-0117 | kim | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
-| B-11 | M-2023-0018 | mara | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-11 | M-2023-0018 | sanne | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-11 | M-2023-0018 | kim | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-12 | M-2023-0033 | mara | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-12 | M-2023-0033 | sanne | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
-| B-12 | M-2023-0033 | kim | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-13 | M-2020-0034 | mara | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
-| B-13 | M-2020-0034 | sanne | no | CQ-06 refused | CQ-01 refused · CQ-03 refused | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
-| B-13 | M-2020-0034 | kim | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
-| B-14 | M-2020-0032 | mara | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
-| B-14 | M-2020-0032 | sanne | yes | CQ-06 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
-| B-14 | M-2020-0032 | kim | no | CQ-06 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-03 | M-2022-0117 | mara | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
+| B-03 | M-2022-0117 | sanne | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered-with-withheld | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-03 | M-2022-0117 | kim | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
+| B-11 | M-2023-0018 | mara | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-11 | M-2023-0018 | sanne | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-11 | M-2023-0018 | kim | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-12 | M-2023-0033 | mara | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-12 | M-2023-0033 | sanne | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
+| B-12 | M-2023-0033 | kim | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-13 | M-2020-0034 | mara | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
+| B-13 | M-2020-0034 | sanne | no | CQ-06 refused · CQ-10 refused | CQ-01 refused · CQ-03 refused | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+| B-13 | M-2020-0034 | kim | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 answered |
+| B-14 | M-2020-0032 | mara | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
+| B-14 | M-2020-0032 | sanne | yes | CQ-06 answered · CQ-10 answered | CQ-01 answered · CQ-03 answered | CQ-02 answered · CQ-08 answered | CQ-07 answered · CQ-05 refused-aggregate |
+| B-14 | M-2020-0032 | kim | no | CQ-06 refused · CQ-10 refused | CQ-01 answered-with-withheld · CQ-03 answered-with-withheld | CQ-02 answered-with-withheld · CQ-08 answered | CQ-07 refused-aggregate · CQ-05 refused-aggregate |
+
+## Passages, through the permit
+
+For each restricted matter, each persona asks for the client's matters (CQ-01), then
+asks the index for passages with the permit that answer carried. The permit's
+matters are the filter, inside the query.
+
+| rule | persona | may see the matter | passages | leaked |
+|---|---|---|---|---|
+| B-03 | mara | yes | 5 | nothing |
+| B-03 | sanne | no | 4 | nothing |
+| B-03 | kim | yes | 5 | nothing |
+| B-11 | mara | no | 1 | nothing |
+| B-11 | sanne | no | 1 | nothing |
+| B-11 | kim | no | 1 | nothing |
+| B-12 | mara | no | 5 | nothing |
+| B-12 | sanne | yes | 5 | nothing |
+| B-12 | kim | no | 5 | nothing |
+| B-13 | mara | yes | 2 | nothing |
+| B-13 | sanne | no | 0 | nothing |
+| B-13 | kim | yes | 2 | nothing |
+| B-14 | mara | yes | 5 | nothing |
+| B-14 | sanne | yes | 5 | nothing |
+| B-14 | kim | no | 5 | nothing |
+
+## The document store — the second enforcement point
+
+Every persona, every document: the store's own policy (compiled from `barriers.yaml`
+into per-persona MinIO users) against OPA's decision for the document's matter. Then
+the stolen identifier: each restricted document fetched with the credentials of each
+person walled from it — the case where an id leaked by some other route.
+
+| | |
+|---|---|
+| persona × document checks | 3710 |
+| **disagreements with OPA** | **0** |
+| stolen-id fetches refused by the store | 15 / 15 |
+
+## The comparison — vector-only retrieval
+
+The same kind of question, answered the ordinary way: top-5 passages over the whole
+index, no access decision, as a retrieval layer built by a service account behaves.
+Not a pass or fail — the number the design is measured against.
+
+| | |
+|---|---|
+| questions about a restricted matter, asked by someone walled from it | 8 |
+| **returned passages from a walled matter** | **8** |
+| walled passages returned | 11 |
+
+- sanne asked about a regulatory-investigation: top-5 held 2 passage(s) from walled matters (M-2022-0117)
+- mara asked about a corporate-transaction: top-5 held 1 passage(s) from walled matters (M-2023-0018)
+- sanne asked about a corporate-transaction: top-5 held 1 passage(s) from walled matters (M-2023-0018)
 
 ## Identities that must see nothing
 
@@ -94,7 +147,7 @@ The permit, and the decision record — which only Risk & Compliance may read.
 |---|---|---|
 | passages() with no permit | refused-permit | yes |
 | passages() with another person's permit | refused-permit | yes |
-| passages() with your own permit | no-index | yes |
+| passages() with your own permit | answered | yes |
 | audit_subject() as mara | refused | yes |
 | audit_person() as mara | refused | yes |
 | audit_trace() as mara | refused | yes |

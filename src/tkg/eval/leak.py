@@ -54,6 +54,26 @@ class Case:
 
 
 @dataclass
+class StoreCheck:
+    """The second enforcement point, checked against the first on every document."""
+
+    checks: int = 0
+    disagreements: list[str] = field(default_factory=list)
+    stolen_attempts: int = 0
+    stolen_refused: int = 0
+
+
+@dataclass
+class NaiveCheck:
+    """The comparison: the same questions, top-k over every passage, no decision."""
+
+    questions: int = 0
+    leaked_questions: int = 0
+    leaked_passages: int = 0
+    examples: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Result:
     disclosure: str
     cases: list[Case]
@@ -61,6 +81,8 @@ class Result:
     audit_records: int = 0
     audit_leaks: list[str] = field(default_factory=list)
     chain_ok: bool = False
+    store: StoreCheck = field(default_factory=StoreCheck)
+    naive: NaiveCheck = field(default_factory=NaiveCheck)
 
     @property
     def leaks(self) -> list[Case]:
@@ -78,6 +100,8 @@ class Result:
             and all(ok for *_, ok in self.doors)
             and not self.audit_leaks
             and self.chain_ok
+            and not self.store.disagreements
+            and self.store.stolen_attempts == self.store.stolen_refused
         )
 
 
@@ -147,7 +171,7 @@ def _matters(dsn: str, refs: list[str]) -> dict[str, dict]:
     with psycopg.connect(dsn, row_factory=dict_row) as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT m.matter_ref, m.client_ref, m.matter_type, m.jurisdiction, m.office,"
-            " m.lead_person_ref, m.opened_on, c.client_type"
+            " m.lead_person_ref, m.opened_on, c.client_type, c.name AS client_name"
             " FROM pms.matter m JOIN pms.client c USING (client_ref)"
             " WHERE m.matter_ref = ANY(%s)",
             (refs,),
@@ -174,7 +198,76 @@ def _questions(m: dict) -> list[tuple[str, str, dict]]:
             "since": since,
         }),
         ("aggregate", "CQ-05", {"office": f"id:office/{m['office']}"}),
+        ("direct", "CQ-10", {"matter": m["matter_ref"]}),
     ]
+
+
+def _store_check(cfg, personas: dict, denials: dict) -> StoreCheck:
+    """OPA and the document store must agree on every persona and every document —
+    and a document id obtained some other way must yield nothing to someone denied."""
+    import httpx
+    from minio.error import S3Error
+
+    from ..dms import BUCKET, Store
+    from ..ingest import documents as documents_mod
+
+    docs = documents_mod.read(cfg.documents_path)
+    matters = sorted({d.matter for d in docs})
+    check = StoreCheck()
+    for pid, p in personas.items():
+        decision = httpx.post(f"{cfg.opa_url}/v1/data/tkg/access/decision", json={"input": {
+            "principal": p["principal"], "matters": matters, "lineage": {}}}, timeout=60
+        ).json()["result"]
+        allowed = {m for m, d in decision["matters"].items() if d["allow"]}
+        secret = (cfg.secrets_dir / f"minio-{pid}.secret").read_text().strip()
+        store = Store(cfg.minio_url, pid, secret)
+        for d in docs:
+            key = f"doc/{d.matter}/{d.doc_id}.pdf"
+            try:
+                store.client.stat_object(BUCKET, key)
+                opened = True
+            except S3Error:
+                opened = False
+            check.checks += 1
+            if opened != (d.matter in allowed):
+                opa = "allow" if d.matter in allowed else "deny"
+                check.disagreements.append(
+                    f"{pid} {key}: opa={opa} store={'open' if opened else 'refused'}"
+                )
+            if pid in denials and d.matter in denials[pid]:
+                check.stolen_attempts += 1
+                check.stolen_refused += 0 if opened else 1
+    return check
+
+
+def _naive_check(cfg, attrs: dict, rules: list, denials: dict, tokens: dict) -> NaiveCheck:
+    """The vector-only path, on questions about each restricted matter, as each person
+    screened from it. Not a pass/fail: the number the design is measured against."""
+    from ..index import Embedder, Index
+
+    index, embed = Index(cfg.index_url), Embedder()
+    check = NaiveCheck()
+    for _, matter in rules:
+        m = attrs[matter]
+        # The question a screened lawyer would actually type: it names the client.
+        text = (f"What was the outcome of the {m['matter_type'].replace('-', ' ')} for "
+                f"{m['client_name']}, and who led it?")
+        hits = index.search(text, embed([text])[0], None, k=5)
+        for persona, denied in denials.items():
+            if matter not in denied:
+                continue
+            check.questions += 1
+            leaked = [h for h in hits if h["matter_id"] in denied]
+            if leaked:
+                check.leaked_questions += 1
+                check.leaked_passages += len(leaked)
+                if len(check.examples) < 3:
+                    walled = ", ".join(sorted({h["matter_id"] for h in leaked}))
+                    check.examples.append(
+                        f"{persona} asked about a {m['matter_type']}: top-5 held "
+                        f"{len(leaked)} passage(s) from walled matters ({walled})"
+                    )
+    return check
 
 
 def _judge(case: Case, response: dict, disclosure: str, tokens: list[str]) -> None:
@@ -191,8 +284,10 @@ def _judge(case: Case, response: dict, disclosure: str, tokens: list[str]) -> No
     if case.denied and case.shape == "direct" and case.rows:
         case.problem = "a direct question about a denied matter returned rows"
     if not case.denied and case.shape == "direct":
-        refs = {r.get("matterRef") for r in response.get("rows") or []}
-        if refused or case.matter not in refs:
+        rows = response.get("rows") or []
+        refs = {r.get("matterRef") for r in rows}
+        seen = bool(rows) if case.template == "CQ-10" else case.matter in refs
+        if refused or not seen:
             case.problem = "over-refusal: a matter this persona may see was withheld"
 
 
@@ -235,6 +330,21 @@ def run(cfg, console) -> Result:
                 case.problem = f"expected a refusal under {rule_id}"
             cases.append(case)
 
+    # Passages behind a permit: one hop from each restricted matter's client.
+    for rule, matter in rules:
+        for persona in PERSONAS:
+            first = clients[persona].ask("CQ-01", {"client": attrs[matter]["client_ref"]})
+            case = Case(rule, matter, persona, "passages", "passages",
+                        {"after": "CQ-01"}, denied=matter in denials[persona])
+            if first.get("permit"):
+                response = clients[persona].passages(first["permit"], "outcome settlement fine")
+                case.outcome, case.trace = response.get("outcome", "?"), response.get("trace", "")
+                case.rows = len(response.get("passages") or [])
+                case.leaked = _scan(response, tokens[persona])
+            else:
+                case.outcome = "no permit — nothing permitted"
+            cases.append(case)
+
     # The permit is the lock on the one door the tool surface itself opens.
     mara = clients["mara"].ask("CQ-01", {"client": "C-0042"})
     sanne = clients["sanne"].ask("CQ-01", {"client": "C-0042"})
@@ -246,8 +356,9 @@ def run(cfg, console) -> Result:
         ("passages() with your own permit",
          clients["sanne"].passages(sanne.get("permit", ""))["outcome"], True),
     ]
+    opened = ("answered", "no-index")
     doors = [
-        (name, outcome, (outcome == "no-index") == should_open)
+        (name, outcome, (outcome in opened) == should_open)
         for name, outcome, should_open in doors
     ]
 
@@ -301,6 +412,8 @@ def run(cfg, console) -> Result:
     doors.append(("audit_subject() as risk", outcome, outcome == "shown"))
 
     result = Result(disclosure=disclosure, cases=cases, doors=doors)
+    result.store = _store_check(cfg, personas, denials)
+    result.naive = _naive_check(cfg, attrs, rules, denials, tokens)
 
     # The record of all that must not leak what the barriers hide.
     traces = {c.trace: c.persona for c in cases if c.trace}
@@ -338,12 +451,25 @@ def run(cfg, console) -> Result:
                       f"{c.problem or 'leaked ' + ', '.join(c.leaked)}")
     for line in result.audit_leaks:
         console.print(f"  [red]✗ audit[/] {line}")
+    st, nv = result.store, result.naive
+    console.print(
+        f"document store: {st.checks} persona×document checks against OPA, "
+        f"{len(st.disagreements)} disagreements · stolen ids {st.stolen_refused}/"
+        f"{st.stolen_attempts} refused"
+    )
+    for line in st.disagreements[:5]:
+        console.print(f"  [red]✗ store[/] {line}")
+    console.print(
+        f"[yellow]vector-only comparison:[/] {nv.leaked_questions} of {nv.questions} questions "
+        f"returned passages from a walled matter ({nv.leaked_passages} passages)"
+    )
     console.print("[green]zero leaks[/]" if result.passed else "[red]FAILED[/]")
     return result
 
 
 def render(result: Result) -> str:
-    cases = [c for c in result.cases if c.shape not in ("identity", "session", "term")]
+    cases = [c for c in result.cases
+             if c.shape not in ("identity", "session", "term", "passages")]
     denied = [c for c in cases if c.denied]
     lines = [
         "# Barrier suite",
@@ -392,6 +518,40 @@ def render(result: Result) -> str:
             + " | ".join(cell(by[s]) for s in ("direct", "second hop", "lineage", "aggregate"))
             + " |"
         )
+    passages = [c for c in result.cases if c.shape == "passages"]
+    st, nv = result.store, result.naive
+    lines += [
+        "", "## Passages, through the permit", "",
+        "For each restricted matter, each persona asks for the client's matters (CQ-01), then",
+        "asks the index for passages with the permit that answer carried. The permit's",
+        "matters are the filter, inside the query.", "",
+        "| rule | persona | may see the matter | passages | leaked |", "|---|---|---|---|---|",
+    ]
+    for c in passages:
+        lines.append(f"| {c.rule} | {c.persona} | {'no' if c.denied else 'yes'} | {c.rows} | "
+                     f"{', '.join(c.leaked) or 'nothing'} |")
+    lines += [
+        "", "## The document store — the second enforcement point", "",
+        "Every persona, every document: the store's own policy (compiled from `barriers.yaml`",
+        "into per-persona MinIO users) against OPA's decision for the document's matter. Then",
+        "the stolen identifier: each restricted document fetched with the credentials of each",
+        "person walled from it — the case where an id leaked by some other route.", "",
+        "| | |", "|---|---|",
+        f"| persona × document checks | {st.checks} |",
+        f"| **disagreements with OPA** | **{len(st.disagreements)}** |",
+        f"| stolen-id fetches refused by the store | {st.stolen_refused} / {st.stolen_attempts} |",
+        "", "## The comparison — vector-only retrieval", "",
+        "The same kind of question, answered the ordinary way: top-5 passages over the whole",
+        "index, no access decision, as a retrieval layer built by a service account behaves.",
+        "Not a pass or fail — the number the design is measured against.", "",
+        "| | |", "|---|---|",
+        f"| questions about a restricted matter, asked by someone walled from it | "
+        f"{nv.questions} |",
+        f"| **returned passages from a walled matter** | **{nv.leaked_questions}** |",
+        f"| walled passages returned | {nv.leaked_passages} |",
+        "",
+    ]
+    lines += [f"- {e}" for e in nv.examples]
     lines += ["", "## Identities that must see nothing", "", "| persona | question | outcome |",
               "|---|---|---|"]
     for c in result.cases:

@@ -30,9 +30,19 @@ matter_types:
 # Outcomes and areas of expertise are vocabularies, not free text: a fact points
 # at a concept, so "settled" is one thing and not five spellings of it.
 outcomes:
-  - {id: no-action,      label: "Closed with no action"}
-  - {id: settled-fine,   label: "Settled — administrative fine"}
-  - {id: formal-warning, label: "Formal warning"}
+  # How matters end. Recorded nowhere structured: the only place an outcome lives
+  # is in the documents (and in what a partner tells us). `for` is the matter
+  # types it can end.
+  - {id: no-action,        label: "Closed with no action",          for: [regulatory-investigation, enforcement-action]}
+  - {id: formal-warning,   label: "Formal warning",                 for: [regulatory-investigation, enforcement-action]}
+  - {id: settled-fine,     label: "Settled — administrative fine",  for: [regulatory-investigation, enforcement-action]}
+  - {id: fine-imposed,     label: "Fine imposed by the regulator",  for: [enforcement-action]}
+  - {id: judgment-for,     label: "Judgment for the client",        for: [commercial-litigation]}
+  - {id: judgment-against, label: "Judgment against the client",    for: [commercial-litigation]}
+  - {id: settled,          label: "Settled",                        for: [commercial-litigation]}
+  - {id: completed,        label: "Completed",                      for: [corporate-transaction, fund-formation]}
+  - {id: abandoned,        label: "Abandoned",                      for: [corporate-transaction, fund-formation]}
+  - {id: advice-delivered, label: "Advice delivered",               for: [regulatory-advisory]}
 
 expertise:
   - {id: afm-market-abuse, label: "AFM market-abuse investigations"}
@@ -110,3 +120,11 @@ pinned:
     # Still open: no closed_on, and later no outcome fact. The answer must say so
     # rather than infer one.
     - {matter_ref: M-2024-0286, client_ref: C-0042, matter_type: regulatory-investigation, practice_area: asset-management-funds, jurisdiction: NL, office: Amsterdam, lead_person_ref: P-0101, opened_on: 2024-09-10, closed_on: null}
+
+  # The true outcomes of the demo matters. Everything else is drawn. These agree
+  # with what the partners told (config/asserted.yaml) — the told fact about
+  # M-2022-0022 is unconfirmed, and happens to be right.
+  outcomes:
+    M-2021-0043: no-action
+    M-2022-0117: settled-fine
+    M-2022-0022: formal-warning

@@ -74,3 +74,6 @@ point in time, or a validity period.
 | ssf:clientType | Knowledge Management | g:spine/pms | current-state | CQ-02 | ClientShape |
 | ssf:hadOutcome | the partner who told us | g:asserted | point-in-time | CQ-02, CQ-06 | FactShape, DerivedGraphShape |
 | ssf:hasExpertise | Knowledge Management | g:asserted | point-in-time | CQ-08 | FactShape, DerivedGraphShape |
+| ssf:documentMatter | Practice Support (DMS) | g:spine/dms | current-state | CQ-10 | DocumentShape |
+| ssf:fromDocument | the extraction pipeline | g:doc | point-in-time | CQ-10 | ExtractedFactShape |
+| ssf:verdict | the person who reviewed it | g:review | point-in-time | CQ-02, CQ-06, CQ-11 | ReviewShape |

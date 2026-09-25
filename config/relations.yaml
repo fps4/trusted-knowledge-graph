@@ -23,3 +23,6 @@ relations:
   - {predicate: clientType,          owner: Knowledge Management,    source: g:spine/pms, time: current-state, templates: [CQ-02], shapes: [ClientShape]}
   - {predicate: hadOutcome,          owner: the partner who told us, source: g:asserted,  time: point-in-time, templates: [CQ-02, CQ-06], shapes: [FactShape, DerivedGraphShape]}
   - {predicate: hasExpertise,        owner: Knowledge Management,    source: g:asserted,  time: point-in-time, templates: [CQ-08], shapes: [FactShape, DerivedGraphShape]}
+  - {predicate: documentMatter,      owner: Practice Support (DMS), source: g:spine/dms, time: current-state, templates: [CQ-10], shapes: [DocumentShape]}
+  - {predicate: fromDocument,        owner: the extraction pipeline, source: g:doc,       time: point-in-time, templates: [CQ-10], shapes: [ExtractedFactShape]}
+  - {predicate: verdict,             owner: the person who reviewed it, source: g:review, time: point-in-time, templates: [CQ-02, CQ-06, CQ-11], shapes: [ReviewShape]}

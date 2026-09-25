@@ -18,18 +18,17 @@ assembled — and writes down what it decided.
                                                   one hash-chained record per request
 ```
 
-> **Status: M2.** Two lawyers ask the same question in two Claude Code sessions;
-> one is answered and one is refused, with the rule, its owner and the date it was
-> set. A business word with four meanings is refused until someone says which one.
-> And Risk & Compliance — only Risk — can ask the record who was shown what, and
-> its asking is recorded too. There are no documents and no extraction yet: those
-> are M3 and M4. What is here runs.
+> **Status: M4, two runs short.** Everything below runs and `make gate` passes.
+> Two numbers need a model and are not in yet: extraction scored against the gold
+> set (`make extract`), and the vector path's composed answers and verdicts
+> (`make eval-live`). Until they are, `reports/extraction.md` does not exist and the
+> vector column below counts only what needs no model — its leaks.
 
 ```sh
 make build && make up-stores && make load && make policy   # first run
 make demo        # the scenes, asked as the personas, through the resolver
-make reports     # leak, glossary and audit reports from a fresh record
-make verify-audit
+make reports     # eval, leak, glossary, audit and extraction reports from a fresh record
+make gate        # the deploy gate — non-zero on any failure
 ```
 
 ## Honesty statement
@@ -59,8 +58,59 @@ Written before the numbers, and it stays at the top.
   recommendation for any particular production estate.
 - **Do not expose this stack to a network.** Every port binds to loopback, and the
   stores have no authentication because they are not reachable.
+- **The documents are template-written**, from the estate. Their prose is more
+  regular than a firm's, so extraction scores are an upper bound; the method is what
+  transfers.
+- **Two verdicts are a model's.** The vector path's answers are composed by Claude
+  and graded by Claude against a truth computed from the estate; both are committed
+  with their reasons. Leaks are counted mechanically and need no judge.
+- **A presigned link is a bearer token for five minutes.** Anyone its holder forwards
+  it to can open it until it expires.
 - **Authored AI-assisted**, with the design record in `docs/decisions/` leading the
   code, as in the sibling labs.
+
+## What M3 and M4 show
+
+**Documents with a gold set.** 742 documents — engagement letters, advice memos,
+closing letters — written from the ground truth, rendered to PDF and read back,
+each recording the facts it was generated to carry. Outcomes exist *only* in closing
+letters, as in a firm. That manifest is what extraction is scored against
+([ADR 0020](docs/decisions/0020-documents-generated-from-the-ground-truth.md)).
+
+**Two enforcement points, one policy file.** The PDFs sit in a document store with
+one user and policy per person, compiled from the same `barriers.yaml` as OPA's
+data. The graph refuses the fact; the store refuses the bytes, on its own policy.
+Every citation carries a link that opens the PDF, signed with the asking person's
+own credentials for five minutes — and a link Sanne signs herself for a walled
+document returns 403. OPA and the store agree on every person × document pair
+([ADR 0021](docs/decisions/0021-the-document-store-enforces-its-own-access.md)).
+
+**The index is filtered inside the query.** One passage per document, BM25 and
+embeddings, with the permitted matters inside both clauses; `passages()` needs the
+permit. The index *does* hold document text — the graph holds none, the index holds
+permission-trimmed passages, the store holds the bytes
+([ADR 0022](docs/decisions/0022-the-index-is-pre-filtered-inside-the-query.md)).
+
+**The comparison.** Asked "what was the outcome of the AFM investigation into Rhine
+Capital Partners?", the ordinary vector path returns the closing letter of the
+matter Sanne is screened from, first. Across client-named questions about every
+restricted matter, asked as each person walled from it, the vector path put walled
+passages in front of the model on **8 of 8**; the resolver leaked on **0 of 160**.
+
+**The battery and the gate.** Thirty questions with known answers, computed from the
+estate rather than the graph, asked both ways and scored four ways — correct,
+refused, confidently wrong, leaked ([ADR 0025](docs/decisions/0025-the-eval-scores-four-outcomes-on-both-paths.md)).
+`make gate` holds the policy, the suite, the two enforcement points, the record and
+the eval to a baseline, and exits non-zero on any failure
+([ADR 0026](docs/decisions/0026-the-gate-and-review.md)).
+
+**Review.** `tkg review list|confirm|reject` — through the resolver, as the reviewer,
+on the record. A review is its own graph derived from the fact's, so it is walled
+wherever the fact is; answers stop asserting a rejected fact.
+
+**What was cut** — text-to-SPARQL, OPA's log as a second stream, the Ontop test,
+Splink, the public corpus, the HTML workbench — is listed with what each costs in
+[ADR 0024](docs/decisions/0024-what-was-cut-and-why.md).
 
 ## What M2 shows
 
@@ -166,16 +216,30 @@ exists.
 
 ## The numbers
 
+From `reports/eval.md` — thirty questions, both paths:
+
+| path | correct | refused | confidently wrong | **leaked** | not yet run |
+|---|---|---|---|---|---|
+| graph-grounded, through the resolver | 30 | 0 | 0 | **0** | — |
+| vector-only, no access decision | *pending* | *pending* | *pending* | **6** | 24 |
+
+The vector path's six leaks need no model to count: walled passages were placed in
+its context. Its other verdicts wait for `make eval-live`. Six of the graph path's
+thirty answers are right but incomplete — outcomes no document or partner has
+recorded yet, which the answer does not invent.
+
 From `reports/leak.md`, generated by `make leak`:
 
 | | |
 |---|---|
-| questions asked — every rule × every persona × direct / second hop / lineage / aggregate, plus the glossary path | 130 |
-| … where the persona is denied the matter | 56 |
+| questions asked — every rule × every persona × direct / second hop / lineage / aggregate / documents, the glossary path, passages | 160 |
+| … where the persona is denied the matter | 64 |
 | **leaked** | **0** |
 | wrong refusals, including over-refusals of matters the persona may see | 0 |
 | doors behaving — the permit, and the record only Risk may read | 16 / 16 |
-| audit records checked for a denied identifier in clear, including Risk's own reads | 134 — **0 found** |
+| audit records checked for a denied identifier in clear, including Risk's own reads | 164 — **0 found** |
+| person × document checks, OPA against the document store | 3,710 — **0 disagreements** |
+| walled documents fetched with the walled person's own credentials | 15 — **all refused** |
 
 Who *should* be denied is computed from `barriers.yaml` and the systems of record
 directly, bypassing both the policy compiler and OPA. That independence was checked
@@ -246,6 +310,8 @@ once, which is exactly the boundary the demo is about — so there isn't one.
 | `config/sali-mapping.yaml` | the firm's vocabularies against SALI LMSS, pinned |
 | `config/relations.yaml` | who owns each relation, and whether it states the present or a date |
 | `vocab/` | the imported SALI subset, with provenance — `docs/sources.md` is the register |
+| `config/battery.yaml` | thirty questions, each with how its truth is computed |
+| `data/fixtures/` | the documents and their manifest; extraction and vector-eval results once run |
 | `sql/`, `mappings/` | the systems of record, and R2RML over them |
 | `ontology/` | a small OWL profile, and the shapes that gate every load |
 | `policy/access.rego` | the policy — hand-written, with `opa test` cases |
@@ -255,7 +321,10 @@ once, which is exactly the boundary the demo is about — so there isn't one.
 | `src/tkg/audit/` | the chained writer, salted hashes, verification |
 | `src/tkg/mcp/` | one MCP server per person |
 | `src/tkg/semantic/` | templates, the glossary resolver, the router |
-| `reports/` | `leak.md`, `glossary.md`, `audit.md` — generated, never typed |
-| `docs/decisions/` | nineteen ADRs, written before the code they justify — one still open |
+| `src/tkg/dms.py`, `src/tkg/index.py` | the document store and the index |
+| `src/tkg/ingest/` | estate, documents, extraction, linking, the load pipeline |
+| `src/tkg/eval/` | the barrier suite, the battery, truth, extraction scoring |
+| `reports/` | `eval.md`, `leak.md`, `glossary.md`, `audit.md`, `baseline.json` — generated, never typed |
+| `docs/decisions/` | twenty-six ADRs, written before the code they justify — one still open |
 
 MIT.

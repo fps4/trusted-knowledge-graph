@@ -87,7 +87,7 @@ def test_no_permitted_derived_graph_means_none_is_read():
 def test_the_candidate_query_reaches_but_selects_identifiers_only():
     t = TEMPLATES["CQ-02"]
     query = t.candidates(t.check_slots({}))
-    assert "SELECT DISTINCT ?matter ?fg WHERE" in query
+    assert "SELECT DISTINCT ?matter ?fg ?rg WHERE" in query  # reviews reached too
     assert "VALUES ?matter" not in query
 
 

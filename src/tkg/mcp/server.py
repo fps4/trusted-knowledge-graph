@@ -133,8 +133,10 @@ def build(persona: str, key: bytes, resolver_url: str) -> MCPServer:
     def passages(permit: str, text: str = "") -> dict:
         """Passages from the document index, limited to what ask() permitted.
 
-        Needs the permit returned by ask(). The index arrives in M3; the permit is
-        checked now.
+        Needs the permit returned by ask(); the permitted matters are applied as a
+        filter inside the index query, so nothing else is ever scored. Each passage
+        carries a source_url that opens the PDF, minted with your own credentials
+        and valid for minutes. There is no tool that fetches a document by id.
         """
         return call("POST", "/passages", {"permit": permit, "text": text})
 

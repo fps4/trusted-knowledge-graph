@@ -12,7 +12,7 @@
 ranges, and nothing that needs a reasoner to be useful. The vocabulary for areas of
 law and matter types is a SKOS scheme, not a class hierarchy, so that knowledge
 management can own it without a release. M2 maps that scheme onto SALI LMSS.""" ;
-    owl:versionInfo "0.3.0 — M2" .
+    owl:versionInfo "0.4.0 — M3" .
 
 # ── Classes ──────────────────────────────────────────────────────────────────
 ssf:Matter       a owl:Class ; rdfs:label "Matter" .
@@ -121,3 +121,35 @@ ssf:servedBy     a owl:DatatypeProperty ; rdfs:comment "The competency-question 
 ssf:means        a owl:ObjectProperty ; rdfs:comment "A value this term fills into a slot, e.g. fund manager → gl:client-type/fund-manager." .
 ssf:meansSlot    a owl:DatatypeProperty .
 ssf:meansValue   a owl:ObjectProperty .
+
+# ── Documents (M3) ───────────────────────────────────────────────────────────
+# A document is represented by its identifier, matter, type, date and the key of
+# its bytes in the document store — never its text. docs/decisions/0006.
+ssf:Document       a owl:Class ; rdfs:label "Document" .
+ssf:documentMatter a owl:ObjectProperty   ; rdfs:domain ssf:Document ; rdfs:range ssf:Matter .
+ssf:docType        a owl:DatatypeProperty ; rdfs:domain ssf:Document ; rdfs:range xsd:string .
+ssf:documentDate   a owl:DatatypeProperty ; rdfs:domain ssf:Document ; rdfs:range xsd:date .
+ssf:objectKey      a owl:DatatypeProperty ; rdfs:domain ssf:Document ; rdfs:range xsd:string ;
+    rdfs:comment "Where the bytes are, in the document store. The only route to them is a presigned URL the access decision permitted." .
+
+# Who worked on a matter, as a document says it — distinct from the assignment
+# the practice-management system records, so the two can disagree visibly.
+ssf:workedOn     a owl:ObjectProperty ; rdfs:label "worked on" ;
+    rdfs:domain ssf:Matter ; rdfs:range ssf:Person .
+
+# A fact extracted from a document names the document, not a person.
+ssf:fromDocument a owl:ObjectProperty   ; rdfs:domain ssf:Fact ; rdfs:range ssf:Document .
+ssf:extractedBy  a owl:DatatypeProperty ; rdfs:domain ssf:Fact ;
+    rdfs:comment "The model and pipeline version that proposed this fact." .
+ssf:charStart    a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:integer ;
+    rdfs:comment "Where in the document text the evidence starts. An offset, never the passage: the passage belongs to the index." .
+ssf:charEnd      a owl:DatatypeProperty ; rdfs:domain ssf:Fact ; rdfs:range xsd:integer .
+
+# ── Review (M4) ──────────────────────────────────────────────────────────────
+# A person confirms or rejects a fact. The review is its own small graph, derived
+# from the fact's graph, so whoever may not see the fact may not see its review.
+ssf:Review     a owl:Class ; rdfs:label "Review of a fact" .
+ssf:reviews    a owl:ObjectProperty   ; rdfs:domain ssf:Review ; rdfs:range ssf:Fact .
+ssf:verdict    a owl:DatatypeProperty ; rdfs:domain ssf:Review ; rdfs:range xsd:string .
+ssf:reviewedBy a owl:ObjectProperty   ; rdfs:domain ssf:Review ; rdfs:range ssf:Person .
+ssf:reviewedOn a owl:DatatypeProperty ; rdfs:domain ssf:Review ; rdfs:range xsd:date .

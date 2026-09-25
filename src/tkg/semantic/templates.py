@@ -82,6 +82,7 @@ class Template:
     tail: str = ""
     note: str = ""
     needs: str = "facts"  # facts | passages | both — what the router reads
+    passage_query: str = ""  # what to ask the index, for templates that need passages
     listed: bool = True  # False for a reading's template, reached through its term
     derived: tuple[str, ...] = field(init=False, default=())
 
@@ -180,12 +181,20 @@ OUTCOME_OPTIONAL = """
             ssf:factSubject ?matter ;
             ssf:factPredicate ssf:hadOutcome ;
             ssf:factObject ?outcome ;
-            ssf:reviewState ?review ;
+            ssf:reviewState ?stated ;
             ssf:confidence ?confidence .
     }
     {{graph:fg}}
     GRAPH ?go { ?outcome skos:prefLabel ?outcomeLabel }
     {{graph:go}}
+    OPTIONAL {
+      GRAPH ?rg { ?rv ssf:reviews ?fact ; ssf:verdict ?verdict }
+      {{graph:rg}}
+    }
+    BIND (COALESCE(?verdict, ?stated) AS ?review)
+    # A fact a person has rejected is not asserted. It stays in the graph, with its
+    # review, for the record.
+    FILTER (?review != "rejected")
   }"""
 
 CQ01 = Template(
@@ -236,7 +245,7 @@ CQ02 = Template(
         "matterRef", "clientLabel", "leadLabel", "opened", "closed",
         "outcomeLabel", "review", "confidence", "g", "fg",
     ),
-    graphs={"g": SPINE, "gh": SPINE, "fg": DERIVED, "go": VOCAB},
+    graphs={"g": SPINE, "gh": SPINE, "fg": DERIVED, "go": VOCAB, "rg": DERIVED},
     note=(
         "The matters come from the systems of record. The outcome, where there is one, "
         "was told by a named partner and carries its review state; where there is none, "
@@ -357,7 +366,7 @@ CQ06 = Template(
         "matterRef", "clientLabel", "typeLabel", "leadLabel", "opened", "closed",
         "outcomeLabel", "review", "g", "fg",
     ),
-    graphs={"g": SPINE, "gt": VOCAB, "gh": SPINE, "fg": DERIVED, "go": VOCAB},
+    graphs={"g": SPINE, "gt": VOCAB, "gh": SPINE, "fg": DERIVED, "go": VOCAB, "rg": DERIVED},
     select=(
         "?matterRef ?clientLabel ?typeLabel ?leadLabel ?opened ?closed "
         "?outcomeLabel ?review ?g ?fg"
@@ -454,6 +463,77 @@ CQ08 = Template(
     tail="ORDER BY ?topicLabel",
 )
 
+CQ10 = Template(
+    id="CQ-10",
+    question="What documents do we hold on this matter, what do they establish, and where can "
+    "I read them?",
+    slots=(Slot("matter", "iri", iri.matter("M-2021-0043"), "the matter, e.g. M-2021-0043"),),
+    columns=("docId", "docType", "date", "fact", "value", "confidence", "review", "fg"),
+    graphs={"g": SPINE, "fg": DERIVED},
+    needs="both",
+    passage_query="outcome of the matter, the advice given, and who acted",
+    note=(
+        "Facts extracted from each document, with confidence and review state — and the "
+        "passages behind them, from the index, filtered to what you may see. Every document "
+        "carries a link that opens it, minted with your own document-store credentials."
+    ),
+    select="?docId ?docType ?date ?fact ?value ?confidence ?review ?fg",
+    where="""
+  {{access:matter}}
+  GRAPH ?g {
+    ?doc a ssf:Document ; ssf:documentMatter ?matter ; ssf:docType ?docType ;
+         ssf:documentDate ?date .
+  }
+  {{graph:g}}
+  FILTER (?matter = {{matter}})
+  BIND (STRAFTER(STR(?doc), "/id/doc/") AS ?docId)
+  OPTIONAL {
+    GRAPH ?fg {
+      ?f ssf:fromDocument ?doc ; ssf:factPredicate ?p ; ssf:factObject ?o ;
+         ssf:confidence ?confidence ; ssf:reviewState ?review .
+    }
+    {{graph:fg}}
+    BIND (STRAFTER(STR(?p), "/firm/") AS ?fact)
+    BIND (STRAFTER(STR(?o), "fps4.dev/") AS ?value)
+  }
+""",
+    tail="ORDER BY ?date ?docId ?fact",
+)
+
+CQ11 = Template(
+    id="CQ-11",
+    question="Which facts about this matter are unconfirmed or extracted, and await review?",
+    slots=(Slot("matter", "iri", iri.matter("M-2022-0022"), "the matter, e.g. M-2022-0022"),),
+    columns=("factId", "fact", "value", "confidence", "review", "source", "fg"),
+    graphs={"fg": DERIVED, "rg": DERIVED},
+    matter_var=None,
+    note=(
+        "Review with `tkg review confirm|reject <factId>`. A review is its own graph, "
+        "derived from the fact's, so it is walled wherever the fact is."
+    ),
+    select="?factId ?fact ?value ?confidence ?review ?source ?fg",
+    where="""
+  GRAPH ?fg {
+    ?f a ssf:Fact ; ssf:factSubject {{matter}} ; ssf:factPredicate ?p ; ssf:factObject ?o ;
+       ssf:confidence ?confidence ; ssf:reviewState ?stated .
+    OPTIONAL { ?f ssf:fromDocument ?d }
+    OPTIONAL { ?f ssf:assertedBy ?by }
+  }
+  {{graph:fg}}
+  OPTIONAL {
+    GRAPH ?rg { ?rv ssf:reviews ?f ; ssf:verdict ?verdict }
+    {{graph:rg}}
+  }
+  BIND (COALESCE(?verdict, ?stated) AS ?review)
+  FILTER (?review IN ("extracted", "unconfirmed"))
+  BIND (STRAFTER(STR(?f), "/id/fact/") AS ?factId)
+  BIND (STRAFTER(STR(?p), "/firm/") AS ?fact)
+  BIND (STRAFTER(STR(?o), "fps4.dev/") AS ?value)
+  BIND (COALESCE(STRAFTER(STR(?d), "/id/"), STRAFTER(STR(?by), "/id/")) AS ?source)
+""",
+    tail="ORDER BY ?confidence ?factId",
+)
+
 # ── "active client": one question, four readings, four owners ─────────────
 # Each reading is its own template, reached through the term. A question that
 # names the term without choosing a reading is refused at the router with the
@@ -538,7 +618,7 @@ CQ09_RISK = Template(
 TEMPLATES: dict[str, Template] = {
     t.id: t
     for t in (
-        CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08,
+        CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08, CQ10, CQ11,
         CQ09_PRACTICE, CQ09_FINANCE, CQ09_BD, CQ09_RISK,
     )
 }

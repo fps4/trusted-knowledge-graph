@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from .. import identity, settings
 from ..access.decide import Opa
 from ..audit.chain import Hasher, Writer
+from ..dms import Store
+from ..index import Embedder, Index
 from ..ingest.loader import Fuseki
 from ..semantic.templates import TEMPLATES, TERM_QUESTIONS
 from .engine import Resolver
@@ -49,6 +51,11 @@ class TraceRequest(BaseModel):
     trace: str
 
 
+class ReviewRequest(BaseModel):
+    fact: str
+    verdict: str
+
+
 class ExplainRequest(BaseModel):
     trace: str
 
@@ -70,6 +77,21 @@ def _state() -> tuple[Resolver, dict[str, bytes], dict[str, dict]]:
     }
     salt = (cfg.secrets_dir / "audit.salt").read_text().strip().encode()
     permit_key = identity.read_key(cfg.secrets_dir / "resolver.key")
+
+    def store_for(persona: str) -> Store:
+        # The persona's own document-store credentials, signed for the address the
+        # person will open the link from. Never the root user.
+        secret = (cfg.secrets_dir / f"minio-{persona}.secret").read_text().strip()
+        return Store(cfg.minio_public_url, persona, secret)
+
+    embedder = None
+
+    def embed(texts: list[str]) -> list[list[float]]:
+        nonlocal embedder
+        if embedder is None:
+            embedder = Embedder()
+        return embedder(texts)
+
     resolver = Resolver(
         fuseki=Fuseki(cfg.fuseki_url),
         opa=Opa(cfg.opa_url),
@@ -77,6 +99,9 @@ def _state() -> tuple[Resolver, dict[str, bytes], dict[str, dict]]:
         hasher=Hasher(salt),
         permit_key=permit_key,
         personas=personas,
+        stores=store_for,
+        index=Index(cfg.index_url),
+        embed=embed,
     )
     return resolver, keys, personas
 
@@ -186,3 +211,10 @@ def explain(body: ExplainRequest, persona: str = Depends(caller)) -> dict:
 def passages(body: PassagesRequest, persona: str = Depends(caller)) -> dict:
     resolver, _, _ = _state()
     return resolver.passages(persona, body.permit, body.text)
+
+
+@app.post("/review")
+def review(body: ReviewRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    sink = settings.load().data_dir / "reviews" / "decisions.jsonl"
+    return resolver.review(persona, body.fact, body.verdict, sink)

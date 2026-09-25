@@ -9,8 +9,10 @@ cd "$(dirname "$0")/.."
 # The resolver and the jobs write into the repo (reports/, build/, data/, audit/).
 # Run them as the host user, so what they write stays editable — and git-pullable —
 # on a Linux Docker host.
+grep -q '^TKG_PORT_MINIO=' .env || printf 'TKG_PORT_MINIO=9100\nTKG_PORT_OPENSEARCH=9200\nMINIO_ROOT_USER=tkg-root\n' >> .env
+grep -q '^MINIO_ROOT_PASSWORD=' .env || printf 'MINIO_ROOT_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
 grep -q '^TKG_UID=' .env || printf 'TKG_UID=%s\nTKG_GID=%s\n' "$(id -u)" "$(id -g)" >> .env
-mkdir -p secrets audit build/opa mcp
+mkdir -p secrets audit build/opa mcp data/reviews
 chmod 700 secrets
 
 key() {
@@ -24,6 +26,7 @@ key() {
 PERSONAS=$(sed -n 's/^  - id: //p' config/people.yaml)
 for persona in $PERSONAS; do
   key "$persona.key"
+  key "minio-$persona.secret"   # the persona's own document-store credentials
 done
 key resolver.key
 key audit.salt
