@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About the demo — Trusted Knowledge Layer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="banner">Synthetic. No real firm, client, matter or person. Identity is asserted, not federated.</div>
+<nav class="top">
+  <a href="index.html">Start</a>
+  <a href="about.html" aria-current="page">About the demo</a>
+  <a href="architecture.html">Architecture &amp; decisions</a>
+  <a href="https://github.com/fps4/trusted-knowledge-graph">Source</a>
+</nav>
+<main>
+  <p class="eyebrow">About the demo</p>
+  <h1>What it shows, and why</h1>
+  <p class="lead">
+    A running demonstration of one architecture for a law firm's knowledge. The firm, its clients,
+    matters, people and documents are invented — around 400 matters — and generated deterministically,
+    so every number below can be recomputed.
+  </p>
+
+  <h2>The problem it addresses</h2>
+  <div class="cols">
+    <div class="box">
+      <h3>Questions search cannot answer</h3>
+      <p>"Have we advised a Dutch fund manager on an AFM investigation since 2021 — who led it, what was the
+        outcome?" needs a complete list, joined across practice management, CRM and HR. Top-k passages give
+        a few lookalikes, presented as the whole answer.</p>
+    </div>
+    <div class="box">
+      <h3>Barriers that leak through derived content</h3>
+      <p>A note filed on an open matter that cites a walled one passes any document-level filter. So do
+        summaries, counts and extracted facts. Access has to follow lineage, not just the file.</p>
+    </div>
+    <div class="box">
+      <h3>Words with more than one meaning</h3>
+      <p>"Active client" means four different things to Business Development, the practice groups,
+        Finance and Risk. An assistant that picks one silently gives a confident, wrong number.</p>
+    </div>
+  </div>
+
+  <h2>How it works</h2>
+  <p class="muted small">Every question — from the chat, the guided form, or an AI agent over MCP — goes through one resolver, as one person:</p>
+  <div class="steps">
+    <div class="step"><b>Plan</b>Match the question to a competency question the graph is built to answer.</div>
+    <div class="step"><b>Terms</b>Resolve business words against an owned glossary; ask when a word is ambiguous.</div>
+    <div class="step"><b>Decide</b>Check every candidate matter and fact, and what it derives from, against the barrier rules.</div>
+    <div class="step"><b>Retrieve</b>Only then query the graph and the search index — bound to what was allowed.</div>
+    <div class="step"><b>Record</b>Write the decision, its rules and its grounds to a hash-chained record.</div>
+  </div>
+  <p class="muted small">More on the components and the choices behind them: <a href="architecture.html">Architecture &amp; decisions</a>.</p>
+
+  <h2>What the lab measured</h2>
+  <div class="stats">
+    <div class="stat"><div class="num good">0 <span class="vs">of 250</span></div>
+      <p>barrier questions that leaked walled content, asked as every person through the same boundary the AI uses</p></div>
+    <div class="stat"><div class="num">34 <span class="vs">vs</span> 10 <span class="vs">of 34</span></div>
+      <p>correct answers: graph path vs vector search behind a document ACL — which gave 9 confidently wrong ones</p></div>
+    <div class="stat"><div class="num"><span class="bad">16</span> <span class="vs">vs</span> <span class="good">0</span> <span class="vs">of 16</span></div>
+      <p>precedent questions leaking walled content: document-level filtering vs lineage-aware filtering</p></div>
+    <div class="stat"><div class="num">0.96 <span class="vs">/</span> 0.98</div>
+      <p>precision / recall of fact extraction from documents, against the facts each document was generated to carry</p></div>
+  </div>
+  <p class="muted small">The question battery is built from competency questions — the graph's home ground. Where search
+    should win (exact wording, the long tail) is stated in the repository, not hidden.</p>
+
+  <h2>The people</h2>
+  <ul>
+    <li><strong>Mara de Vries</strong>, Partner, Asset Management, Amsterdam — leads M-2022-0117, a matter walled from others.</li>
+    <li><strong>Sanne Okonjo</strong>, Associate, Financial Institutions, London — screened from M-2022-0117 by barrier B-03.</li>
+    <li><strong>Kim Bakker</strong>, knowledge lawyer — sees broadly, except one need-to-know matter (B-11).</li>
+    <li><strong>Risk &amp; Compliance</strong> — reads the decision record, sees no matter content. The only role that may.</li>
+  </ul>
+
+  <h2>A five-minute tour</h2>
+  <ol>
+    <li><strong>Mara</strong> asks: “Has the firm advised a Dutch fund manager on an AFM investigation since 2021?”
+      Five matters, each with its source. Click the answer, then <em>Sources</em> to open a PDF and <em>Lineage</em>
+      to see fact → document → matter. Note the one outcome that is still <em>unconfirmed</em>.</li>
+    <li><strong>Sanne</strong> asks the same question. Four matters. <em>Explain</em> shows the rule that
+      withheld the fifth — B-03, its owner, the date it was set — and how much was blocked directly vs by lineage.</li>
+    <li><strong>Sanne</strong> asks “Who led M-2022-0117?” — refused, with the grounds. “Who has the most AFM
+      investigation experience?” — refused as an aggregate, because a count can reveal a walled matter.</li>
+    <li><strong>Kim</strong> asks what “active client” means. Four readings, four owners, four counts — the
+      assistant asks which one instead of choosing.</li>
+    <li><strong>Risk</strong> opens the record: everything just asked is there, Sanne's refusals under B-03, and
+      the chain verifies. Paste a trace id from any answer to see the same grounds, read back later.</li>
+  </ol>
+
+  <h2>On each screen</h2>
+  <ul>
+    <li><strong>Chat</strong> — plain questions; Claude (Anthropic API) picks the competency question and calls the resolver as that person. Each tool call shows its outcome.</li>
+    <li><strong>Guided</strong> — pick a competency question and fill its slots. No model and no network: the fallback that always works.</li>
+    <li><strong>Inspector</strong> — for the selected answer: <em>Trace</em> (route, terms, slots, policy version), <em>Explain</em> (the rules),
+      <em>Sources</em> (PDFs signed with that person's own credentials), <em>Lineage</em>, and <em>Record</em> (the stored decision).</li>
+  </ul>
+
+  <h2>What this is not</h2>
+  <ul>
+    <li>Not a real firm, and not production. A pattern, implemented at laptop scale and measured — no throughput, cost or latency claim.</li>
+    <li>Identity is asserted by each screen's own key, not federated from an identity provider — the one place the lab is weaker than the design.</li>
+    <li>The record is tamper-evident, not tamper-proof.</li>
+  </ul>
+
+  <footer>
+    <p>The screens listen on the host's loopback only. From another machine, one tunnel (9100 is the document store, for the PDF links):</p>
+    <pre>ssh -N -L 3100:127.0.0.1:3100 -L 3101:127.0.0.1:3101 -L 3102:127.0.0.1:3102 -L 3103:127.0.0.1:3103 -L 3104:127.0.0.1:3104 -L 9100:127.0.0.1:9100 &lt;host&gt;</pre>
+  </footer>
+</main>
+</body>
+</html>

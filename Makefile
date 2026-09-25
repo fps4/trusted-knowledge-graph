@@ -18,7 +18,7 @@ mcp-configs: ## MCP configs for Claude Code on this machine; for a remote host: 
 build: init ## Build the images, including the per-persona MCP image and the demo screen
 	$(COMPOSE) --profile mcp --profile jobs build
 
-WEB := web-mara web-sanne web-kim web-risk
+WEB := landing web-mara web-sanne web-kim web-risk
 
 up: init ## Start the stores, opa, the resolver and one demo screen per person, and wait for health
 	@test -f build/opa/data.json || (echo "no compiled policy yet — run: make up-stores load policy" && exit 1)
@@ -116,10 +116,10 @@ boundary: ## Prove the MCP container reaches the resolver and nothing else
 
 web-links: ## The demo screens' URLs, and the ssh tunnel to reach them from another machine
 	@set -a; . ./.env; set +a; \
-	m=$${TKG_PORT_WEB_MARA:-3101}; s=$${TKG_PORT_WEB_SANNE:-3102}; k=$${TKG_PORT_WEB_KIM:-3103}; \
+	l=$${TKG_PORT_LANDING:-3100}; m=$${TKG_PORT_WEB_MARA:-3101}; s=$${TKG_PORT_WEB_SANNE:-3102}; k=$${TKG_PORT_WEB_KIM:-3103}; \
 	r=$${TKG_PORT_WEB_RISK:-3104}; d=$${TKG_PORT_MINIO:-9100}; \
-	echo "ssh -N -L $$m:127.0.0.1:$$m -L $$s:127.0.0.1:$$s -L $$k:127.0.0.1:$$k -L $$r:127.0.0.1:$$r -L $$d:127.0.0.1:$$d $(or $(HOST),<host>)"; \
-	echo "  Mara   http://127.0.0.1:$$m"; echo "  Sanne  http://127.0.0.1:$$s"; \
+	echo "ssh -N -L $$l:127.0.0.1:$$l -L $$m:127.0.0.1:$$m -L $$s:127.0.0.1:$$s -L $$k:127.0.0.1:$$k -L $$r:127.0.0.1:$$r -L $$d:127.0.0.1:$$d $(or $(HOST),<host>)"; \
+	echo "  Start  http://127.0.0.1:$$l"; echo "  Mara   http://127.0.0.1:$$m"; echo "  Sanne  http://127.0.0.1:$$s"; \
 	echo "  Kim    http://127.0.0.1:$$k"; echo "  Risk   http://127.0.0.1:$$r"; \
 	echo "  ($$d is the document store: the PDF links are signed for it)"
 
