@@ -22,7 +22,7 @@ export function Workspace({ persona, model }: { persona: string; model: string |
     <div className="flex h-screen flex-col">
       <Header persona={persona} model={model} />
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
-        <main className="flex min-h-0 flex-col border-r">
+        <main className="flex min-h-0 min-w-0 flex-col border-r">
           <nav className="flex gap-1 border-b px-4 pt-3">
             {modes.map((m) => (
               <button

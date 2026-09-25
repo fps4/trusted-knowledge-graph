@@ -30,7 +30,9 @@ export function AuditView() {
   const [result, setResult] = React.useState<{ kind: string; answer: Answer } | null>(null);
 
   const verify = React.useCallback(() => post('/api/audit/verify').then(setChain), []);
-  React.useEffect(() => void verify(), [verify]);
+  React.useEffect(() => {
+    void verify();
+  }, [verify]);
 
   const run = async (kind: string, body: unknown) => setResult({ kind, answer: await post(`/api/audit/${kind}`, body) });
   const c = chain?.chain as Chain | undefined;
@@ -134,14 +136,45 @@ function AuditResult({ kind, answer }: { kind: string; answer: Answer }) {
           exportName="person"
         />
       )}
-      {kind === 'trace' && record && (
-        <ChatTable
-          columns={[{ key: 'field' }, { key: 'value' }]}
-          rows={Object.entries(record).map(([field, value]) => ({ field, value }))}
-          exportName="record"
-        />
-      )}
+      {kind === 'trace' && record && <TraceRecord record={record} />}
       <Raw value={answer} />
     </section>
+  );
+}
+
+type Ground = { rule: string; kind?: string; owner?: string; set_on?: string; set_by?: string; source?: string };
+type Decision = { item: string; allow: boolean; reached?: string; rules?: string[]; via?: string[] };
+
+// One stored decision, read back: who asked what, the rules that decided it (the same
+// card the person saw), and every item it allowed or blocked, with how it was reached.
+function TraceRecord({ record }: { record: Record<string, unknown> }) {
+  const route = record.route as { route?: string; reason?: string } | undefined;
+  const grounds = Object.values((record.grounds as Record<string, Ground> | undefined) ?? {});
+  const decisions = ((record.decisions as Decision[] | undefined) ?? []).map((d) => ({
+    item: d.item,
+    decided: d.allow ? 'allowed' : 'blocked',
+    reached: d.reached ?? '',
+    rules: (d.rules ?? []).join(', '),
+    via: (d.via ?? []).join(', '),
+  }));
+  return (
+    <>
+      <p className="mt-1 text-sm">
+        <strong>{String(record.persona)}</strong> asked <span className="font-mono">{String(record.template ?? record.request)}</span>{' '}
+        at {String(record.ts)} → <OutcomeBadge outcome={String(record.outcome)} />
+        {route?.reason && <span className="text-muted-foreground"> · {route.route}: {route.reason}</span>}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        record #{String(record.seq)} · policy {String(record.policy_version)} · disclosure {String(record.disclosure)}
+      </p>
+      {grounds.length > 0 && (
+        <>
+          <h4 className="mt-3 font-semibold">Grounds</h4>
+          <ChatTable columns={cols(['rule', 'kind', 'owner', 'set_on', 'set_by', 'source'])} rows={grounds} exportName="grounds" />
+        </>
+      )}
+      <h4 className="mt-3 font-semibold">Decisions ({decisions.length})</h4>
+      <ChatTable columns={cols(['item', 'decided', 'reached', 'rules', 'via'])} rows={decisions} exportName="decisions" />
+    </>
   );
 }

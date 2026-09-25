@@ -78,7 +78,7 @@ export function GuidedView({ onSelect, selected }: { onSelect: (a: Answer) => vo
   const readings = (lookup?.readings as Reading[] | undefined) ?? [];
   return (
     <div className="h-full overflow-y-auto p-4">
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <section>
           <Label htmlFor="cq" className="text-base font-semibold">Competency question</Label>
           <select
@@ -189,7 +189,7 @@ export function GuidedView({ onSelect, selected }: { onSelect: (a: Answer) => vo
             key={String(a.trace)}
             type="button"
             onClick={() => onSelect(a)}
-            className={cn('rounded-xl border bg-card p-4 text-left', a === selected && 'ring-2 ring-foreground/40')}
+            className={cn('min-w-0 rounded-xl border bg-card p-4 text-left', a === selected && 'ring-2 ring-foreground/40')}
           >
             <AnswerCard answer={a} />
           </button>
