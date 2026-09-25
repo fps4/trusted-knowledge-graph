@@ -1,0 +1,17 @@
+# deps / build
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# env (instance config); .env.example is tracked
+.env
+.env.local
+.env*.local
+
+# misc
+*.log
+.DS_Store
+.vscode/
