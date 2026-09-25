@@ -35,7 +35,7 @@ policy: ## Compile barriers.yaml against the systems of record, test it, and res
 	docker run --rm -v "$(CURDIR)/policy:/policy:ro" openpolicyagent/opa:1.9.0-static test /policy
 	$(COMPOSE) up -d --wait --force-recreate opa resolver
 
-demo: ## The M1 scenes, asked as the personas, through the resolver
+demo: ## The demo scenes, asked as the personas, through the resolver
 	$(JOB) demo
 
 ask: ## One question as one persona: make ask Q=CQ-06 AS=sanne S="matter=M-2022-0117"

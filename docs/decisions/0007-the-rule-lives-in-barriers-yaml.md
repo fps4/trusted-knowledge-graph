@@ -1,6 +1,6 @@
 # 7. The rule lives in `barriers.yaml`; the system of record evidences it
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 

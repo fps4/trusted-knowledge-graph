@@ -1,14 +1,14 @@
 # 19. Aggregates over walled matters — an open decision for the firm
 
-Status: **proposed** · 2026-09-25 · M2 — the lab's current behaviour is recorded; the choice is not the lab's
+Status: **proposed** · 2026-09-25 — the lab's current behaviour is recorded; the choice is not the lab's
 
 ## Context
 
-M1 refuses an aggregate whose candidate set includes any matter the person cannot
+The resolver refuses an aggregate whose candidate set includes any matter the person cannot
 see: a count computed over the rest would be wrong in a way they could not detect.
 For a question about AFM investigations, that is right.
 
-M2 shows what it costs. A firm-wide count — how many active clients, by Finance's
+The glossary shows what it costs. A firm-wide count — how many active clients, by Finance's
 reading — touches some matter nearly everyone is walled from. With one
 need-to-know matter (B-11) and one office screen (B-12) in a synthetic estate of
 400 matters, **Mara, Kim and Sanne are all refused two of the four readings of

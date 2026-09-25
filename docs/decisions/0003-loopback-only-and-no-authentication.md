@@ -1,6 +1,6 @@
 # 3. Every port binds to loopback, and the services have no authentication
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 
@@ -16,7 +16,7 @@ instruction not to expose the stack.
 
 ## Consequences
 
-- The access control that is real — from M1, policy decisions compiled from
+- The access control that is real — policy decisions compiled from
   `config/barriers.yaml` — is not confused with transport security that is not.
 - A reviewer can tell the difference between "this lab demonstrates an access
   model" and "this lab is hardened", because the repo draws the line itself

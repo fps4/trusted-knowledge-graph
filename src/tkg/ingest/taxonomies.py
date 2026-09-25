@@ -1,9 +1,9 @@
 """The concept schemes, generated from config/estate.yaml.
 
-M0 keeps these bare: a prefLabel and a scheme. M2 replaces this generator with an
-authored SKOS file carrying owners, alternative labels, the multi-reading entries
-and the mapping onto SALI LMSS. Generating them now means the estate config stays
-the single source of the vocabulary until there is a reason for it not to be.
+They stay bare: a prefLabel and a scheme. Owners, alternative labels, the
+multi-reading entries and the mapping onto SALI LMSS come separately, from
+config/glossary.yaml and config/sali-mapping.yaml. Generating the schemes keeps the
+estate config the single source of the vocabulary.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 # 5. A NULL produces no triple, and the load gate is what found out
 
-Status: accepted · 2026-09-24 · M0
+Status: accepted · 2026-09-24
 
 ## Context
 

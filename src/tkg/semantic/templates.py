@@ -6,7 +6,7 @@ question is served by picking a template and filling its slots. This is the same
 position as a governed metric registry: every answer comes from a registered
 definition, never from ad-hoc query generation.
 
-From M1 every template also says what it touches, so that access can be decided
+Every template also says what it touches, so that access can be decided
 before anything is retrieved (docs/decisions/0009):
 
 - `matter_var` — the variable that binds a matter. Spine facts are allowed or

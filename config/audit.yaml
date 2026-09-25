@@ -24,7 +24,7 @@ not_recorded:
   - free text                         # a question in the lawyer's words can name a client
   - composed answer text              # citations only; the text is a setting for the firm
 
-readers: [risk]                       # from M2; and risk's own reads go into the same chain
+readers: [risk]                       # and risk's own reads go into the same chain
 
 # A default with a reason, not a disk setting. Six years matches the limitation
 # period for most claims a professional-indemnity question would turn on. The

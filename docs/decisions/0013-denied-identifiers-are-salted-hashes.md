@@ -1,6 +1,6 @@
 # 13. Denied identifiers are salted hashes — in every field
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 
@@ -30,7 +30,7 @@ set lists it before any decision is made. A free-text question can name the clie
 
 ## Consequences
 
-- Only a holder of the salt can resolve a hash — from M2, the `risk` persona, whose
+- Only a holder of the salt can resolve a hash — the `risk` persona, whose
   own reads are written into the same chain.
 - The salt never enters git. Without it the hashes are noise; with it the log is a
   sensitive record, and it is treated as one.

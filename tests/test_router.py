@@ -12,9 +12,9 @@ def test_an_ambiguous_term_is_refused_with_the_reason():
     assert r.route == "refuse" and "4 readings" in r.reason
 
 
-def test_passages_are_refused_until_the_index_exists():
+def test_passages_are_refused_without_an_index():
     r = route("passages", "CQ-X")
-    assert r.route == "refuse" and "M3" in r.reason
+    assert r.route == "refuse" and "index is not available" in r.reason
 
 
 def test_passages_and_both_route_once_there_is_an_index():

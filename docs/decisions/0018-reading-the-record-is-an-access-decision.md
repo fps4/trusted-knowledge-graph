@@ -1,6 +1,6 @@
 # 18. Reading the decision record is an access decision
 
-Status: accepted · 2026-09-25 · M2
+Status: accepted · 2026-09-25
 
 ## Context
 

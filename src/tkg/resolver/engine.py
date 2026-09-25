@@ -10,7 +10,8 @@ order:
 4. Bind          — slots validated against the estate.
 5. Decide        — candidates → lineage → OPA → permitted set. The only place a
                    decision is made. docs/decisions/0009.
-6. Passages      — M3: the index. The permit that will guard it exists now.
+6. Passages      — not assembled here: passages() serves them from the index,
+                   pre-filtered, under the permit this step issues. docs/decisions/0022.
 7. Compose       — the bound query, which cannot name a denied matter; or a
                    refusal carrying the rule.
 
@@ -83,7 +84,7 @@ class Resolver:
         embed=None,
     ) -> None:
         # stores(persona) -> a document-store client holding *that persona's*
-        # credentials; index/embed are None until the index exists (M3).
+        # credentials; index/embed are None when no index is wired in.
         self.stores = stores
         self.index = index
         self.embed = embed
@@ -274,7 +275,7 @@ class Resolver:
                 "explain": explain,
             }
 
-        # ── step 6 · passages: M3. The permit below will guard them. ───────
+        # ── step 6 · passages: served by passages(), under the permit below ─
         # ── step 7 · compose, from the permitted set only ──────────────────
         query = template.bind(slots, [iri.matter(m) for m in permitted_m], permitted_g)
         rows, cited = self._run(template, query)

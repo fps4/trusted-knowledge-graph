@@ -1,6 +1,6 @@
 # 16. SALI LMSS: reuse by mapping, not adoption — and verify the namespace
 
-Status: accepted · 2026-09-25 · M2
+Status: accepted · 2026-09-25
 
 ## Context
 

@@ -1,6 +1,6 @@
 # 27. The demo UI — one screen per person, the evidence beside the answer
 
-Status: accepted · 2026-09-25 · M4
+Status: accepted · 2026-09-25
 
 ## Context
 

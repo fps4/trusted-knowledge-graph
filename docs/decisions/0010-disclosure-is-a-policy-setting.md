@@ -1,6 +1,6 @@
 # 10. Disclosure is a policy setting, and a refusal is itself a disclosure
 
-Status: accepted · 2026-09-25 · M1
+Status: accepted · 2026-09-25
 
 ## Context
 
