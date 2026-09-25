@@ -70,10 +70,11 @@ Written before the numbers, and it stays at the top.
 
 ## What M3 and M4 show
 
-**Documents with a gold set.** 742 documents — engagement letters, advice memos,
-closing letters — written from the ground truth, rendered to PDF and read back,
-each recording the facts it was generated to carry. Outcomes exist *only* in closing
-letters, as in a firm. That manifest is what extraction is scored against
+**Documents with a gold set.** 772 documents — engagement letters, advice memos,
+closing letters, and thirty knowledge notes — written from the ground truth, rendered
+to PDF and read back, each recording the facts it was generated to carry. Outcomes
+exist *only* in closing letters and in the notes that cite them, as in a firm. That
+manifest is what extraction is scored against
 ([ADR 0020](docs/decisions/0020-documents-generated-from-the-ground-truth.md)).
 
 **Two enforcement points, one policy file.** The PDFs sit in a document store with
@@ -90,13 +91,29 @@ permit. The index *does* hold document text — the graph holds none, the index 
 permission-trimmed passages, the store holds the bytes
 ([ADR 0022](docs/decisions/0022-the-index-is-pre-filtered-inside-the-query.md)).
 
-**The comparison.** Asked "what was the outcome of the AFM investigation into Rhine
-Capital Partners?", the ordinary vector path returns the closing letter of the
-matter Sanne is screened from, first. Across client-named questions about every
-restricted matter, asked as each person walled from it, the vector path put walled
-passages in front of the model on **8 of 8**; the resolver leaked on **0 of 160**.
+**The comparison — against the baseline a firm would actually run.** With no filter
+at all, asked "what was the outcome of the AFM investigation into Rhine Capital
+Partners?", the vector path returns the closing letter of the matter Sanne is
+screened from, first. That is a weak baseline: a DMS already filters by matter, and
+with a document-level ACL those leaks go away — no document in the corpus mentioned
+another matter. So the corpus now has what a firm's does: **knowledge notes**, filed
+on an open matter, citing a walled matter's file number, client and outcome. The DMS
+opens the note, because it sits on an open matter, and a document-level ACL passes it.
+Asked "what precedent do we have on AFM settlements for fund managers?", the vector
+path behind a document-level ACL put a walled matter's outcome in front of the model
+on **TBD of TBD** questions; with no filter, **TBD of TBD**; the resolver, **0 of TBD**.
 
-**The battery and the gate.** Thirty questions with known answers, computed from the
+**A document inherits the matters it cites.** A note's extracted graph is derived
+from every matter it cites, so its facts — and the note — are walled wherever any
+cited matter is. The index stores every matter a passage depends on and the resolver's
+filter needs *all* of them permitted (`terms_set`, inside both clauses); CQ-10 does
+not list, link or pass a note citing a matter the person cannot see, and counts it as
+withheld by lineage. The document store is left as a DMS is: it does not know what a
+document cites, and the leak report says so — the store is weaker than the graph on
+**TBD** documents; the gate fails only if the graph is ever *broader*
+([ADR 0028](docs/decisions/0028-a-document-inherits-the-matters-it-cites.md)).
+
+**The battery and the gate.** Thirty-four questions with known answers, computed from the
 estate rather than the graph, asked both ways and scored four ways — correct,
 refused, confidently wrong, leaked ([ADR 0025](docs/decisions/0025-the-eval-scores-four-outcomes-on-both-paths.md)).
 `make gate` holds the policy, the suite, the two enforcement points, the record and
@@ -215,27 +232,31 @@ exists.
 
 ## The numbers
 
-From `reports/eval.md` — thirty questions, both paths:
+From `reports/eval.md` — thirty-four questions, both paths:
 
 | path | correct | refused | confidently wrong | **leaked** |
 |---|---|---|---|---|
-| graph-grounded, through the resolver | 30 | 0 | 0 | **0** |
-| vector-only, no access decision | 11 | 3 | 10 | **6** |
+| graph-grounded, through the resolver | TBD | TBD | TBD | **TBD** |
+| vector, behind a document-level ACL | TBD | TBD | TBD | **TBD** |
+| vector, no filter (retrieval only) | — | — | — | **TBD** |
 
-The vector path's six leaks are counted mechanically — walled passages placed in its
-context — and need no judge; its other verdicts are Claude's, graded against a truth
-computed from the estate, with reasons, in `data/fixtures/eval-vector.jsonl`. Four of
-the graph path's thirty answers are right but incomplete: outcomes no document or
-partner recorded, which the answer does not invent.
+The vector path's leaks are counted mechanically — passages placed in its context
+from a walled matter, or from a document citing one — and need no judge; its other
+verdicts are Claude's, graded against a truth computed from the estate, with reasons,
+in `data/fixtures/eval-vector.jsonl`. TBD of the graph path's answers are right but
+incomplete: outcomes no document or partner recorded, which the answer does not
+invent.
 
-From `reports/extraction.md` — 742 documents, extraction scored against the manifest:
+From `reports/extraction.md` — 772 documents, extraction scored against the manifest,
+subject included:
 
 | confidence ≥ | precision | recall |
 |---|---|---|
-| 0.5 | 0.97 | 0.98 |
-| 0.9 | 1.00 | 0.85 |
+| 0.5 | TBD | TBD |
+| 0.9 | TBD | TBD |
 
-Outcomes: precision and recall 1.00. The misses that remain are real ones: 50
+Outcomes: precision TBD, recall TBD. Citations (`citesMatter`): precision TBD,
+recall TBD. The misses that remain are real ones: 50
 clients named as the CRM spells them stay unlinked — identity resolution is cut
 (ADR 0024) — and the model infers a jurisdiction from the regulator's name at low
 confidence, which the document never states. The documents are template-written, so
@@ -248,14 +269,15 @@ From `reports/leak.md`, generated by `make leak`:
 
 | | |
 |---|---|
-| questions asked — every rule × every persona × direct / second hop / lineage / aggregate / documents, the glossary path, passages | 160 |
-| … where the persona is denied the matter | 64 |
-| **leaked** | **0** |
-| wrong refusals, including over-refusals of matters the persona may see | 0 |
-| doors behaving — the permit, and the record only Risk may read | 16 / 16 |
-| audit records checked for a denied identifier in clear, including Risk's own reads | 164 — **0 found** |
-| person × document checks, OPA against the document store | 3,710 — **0 disagreements** |
-| walled documents fetched with the walled person's own credentials | 15 — **all refused** |
+| questions asked — every rule × every persona × direct / second hop / lineage / aggregate / documents, precedent notes, the glossary path, passages | TBD |
+| … where the persona is denied the matter | TBD |
+| **leaked** | **TBD** |
+| wrong refusals, including over-refusals of matters the persona may see | TBD |
+| doors behaving — the permit, and the record only Risk may read | TBD |
+| audit records checked for a denied identifier in clear, including Risk's own reads | TBD — **TBD found** |
+| person × document checks, the graph against the document store | TBD — **TBD where the graph is broader** |
+| … documents citing a walled matter that the store opens and the graph withholds | TBD (a finding) |
+| walled documents fetched with the walled person's own credentials | TBD — **all refused** |
 
 Who *should* be denied is computed from `barriers.yaml` and the systems of record
 directly, bypassing both the policy compiler and OPA. That independence was checked
@@ -326,7 +348,7 @@ once, which is exactly the boundary the demo is about — so there isn't one.
 | `config/sali-mapping.yaml` | the firm's vocabularies against SALI LMSS, pinned |
 | `config/relations.yaml` | who owns each relation, and whether it states the present or a date |
 | `vocab/` | the imported SALI subset, with provenance — `docs/sources.md` is the register |
-| `config/battery.yaml` | thirty questions, each with how its truth is computed |
+| `config/battery.yaml` | thirty-four questions, each with how its truth is computed |
 | `data/fixtures/` | the documents and their manifest, the extraction, the vector path's answers and verdicts |
 | `sql/`, `mappings/` | the systems of record, and R2RML over them |
 | `ontology/` | a small OWL profile, and the shapes that gate every load |
@@ -341,6 +363,6 @@ once, which is exactly the boundary the demo is about — so there isn't one.
 | `src/tkg/ingest/` | estate, documents, extraction, linking, the load pipeline |
 | `src/tkg/eval/` | the barrier suite, the battery, truth, extraction scoring |
 | `reports/` | `eval.md`, `leak.md`, `glossary.md`, `audit.md`, `baseline.json` — generated, never typed |
-| `docs/decisions/` | twenty-six ADRs, written before the code they justify — one still open |
+| `docs/decisions/` | the ADRs, written before the code they justify — one still open |
 
 MIT.
