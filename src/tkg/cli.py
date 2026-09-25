@@ -235,6 +235,7 @@ def documents() -> None:
 def extract(
     limit: int = typer.Option(0, help="only the first N documents (0 = all)"),
     missing: bool = typer.Option(False, help="only documents not yet in the fixture"),
+    resume: str = typer.Option("", help="collect an existing batch by id instead of submitting"),
 ) -> None:
     """Run extraction through Claude (Batches API) and write the fixture. Needs a key."""
     import json as _json
@@ -255,17 +256,19 @@ def extract(
         docs = [d for d in docs if d.doc_id not in have]
     if limit:
         docs = docs[:limit]
-    if not docs:
+    if not docs and not resume:
         console.print("nothing to extract")
         return
-    items = [(d.doc_id, d.matter, dms.pdf_text(dms.render_pdf(d))) for d in docs]
+    items = [] if resume else [(d.doc_id, d.matter, dms.pdf_text(dms.render_pdf(d)))
+                               for d in docs]
     tmp = cfg.data_dir / "generated" / "extraction-batch.jsonl"
-    usage = extract_mod.run_batch(items, config, tmp, lambda m: console.print(f"[dim]{m}[/]"))
+    usage = extract_mod.run_batch(items, config, tmp, lambda m: console.print(f"[dim]{m}[/]"),
+                                  resume or None)
     merged = {**have, **extract_mod.read(tmp)}
     cfg.extraction_path.write_text(
         "\n".join(_json.dumps(merged[k], sort_keys=True, ensure_ascii=False)
                   for k in sorted(merged)) + "\n", encoding="utf-8")
-    console.print(f"[green]extracted {len(items)}[/] · tokens in {usage['input']:,} "
+    console.print(f"[green]extracted {len(extract_mod.read(tmp))}[/] · tokens in {usage['input']:,} "
                   f"(cache reads {usage['cache_read']:,}) · out {usage['output']:,} · "
                   f"refused {usage['refused']} · errored {usage['errored']}")
 

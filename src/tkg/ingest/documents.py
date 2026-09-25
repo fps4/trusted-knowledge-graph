@@ -97,21 +97,25 @@ def build(est: Estate, cfg: dict, seed: int) -> list[Document]:
         # ── engagement letter ───────────────────────────────────────────────
         on = m.opened_on + timedelta(days=rng.randint(0, 7))
         who = client_name(m.client_ref)
-        body = rng.choice([
-            f"Thank you for instructing us in connection with the {type_label.lower()} "
-            f"concerning {who}. This letter confirms the terms on which we will act.\n\n"
-            f"{lead} will have overall responsibility for the matter, supported by a team "
-            f"from our {m.office} office. The work sits within our "
-            f"{areas[m.practice_area]} practice and concerns the law of {juris[m.jurisdiction]}.",
-            f"We are pleased to confirm that {who} has engaged {FIRM} to act on a "
-            f"{type_label.lower()}. Responsibility for the matter rests with {lead}, "
-            f"who may be contacted at any time about its progress.\n\n"
-            f"Our {m.office} office will staff the matter. Fees will be billed periodically "
-            f"on the basis of time spent, in accordance with our standard terms.",
-            f"Further to our recent meeting, we write to set out the scope of our engagement "
-            f"by {who}. The engagement concerns a {type_label.lower()}.\n\n"
-            f"The partner responsible is {lead}. Please direct instructions to {lead.split()[0]} "
-            f"in the first instance.",
+        # Each variant carries exactly the facts it states — the manifest must not
+        # credit a document with a fact it does not say, nor miss one it does.
+        body, stated = rng.choice([
+            (f"Thank you for instructing us in connection with the {type_label.lower()} "
+             f"concerning {who}. This letter confirms the terms on which we will act.\n\n"
+             f"{lead} will have overall responsibility for the matter, supported by a team "
+             f"from our {m.office} office. The work sits within our "
+             f"{areas[m.practice_area]} practice and concerns the law of "
+             f"{juris[m.jurisdiction]}.",
+             [_fact("inJurisdiction", m.matter_ref, f"id:jurisdiction/{m.jurisdiction}")]),
+            (f"We are pleased to confirm that {who} has engaged {FIRM} to act on a "
+             f"{type_label.lower()}. Responsibility for the matter rests with {lead}, "
+             f"who may be contacted at any time about its progress.\n\n"
+             f"Our {m.office} office will staff the matter. Fees will be billed periodically "
+             f"on the basis of time spent, in accordance with our standard terms.", []),
+            (f"Further to our recent meeting, we write to set out the scope of our engagement "
+             f"by {who}. The engagement concerns a {type_label.lower()}.\n\n"
+             f"The partner responsible is {lead}. Please direct instructions to "
+             f"{lead.split()[0]} in the first instance.", []),
         ])
         drafts.append(Document(
             "", m.matter_ref, "engagement-letter", on.isoformat(),
@@ -119,7 +123,7 @@ def build(est: Estate, cfg: dict, seed: int) -> list[Document]:
             f"Dear Sirs,\n\n{body}\n\nYours faithfully,\n\n{FIRM}",
             [_fact("forClient", m.matter_ref, m.client_ref),
              _fact("ledBy", m.matter_ref, m.lead_person_ref),
-             _fact("matterType", m.matter_ref, f"gl:matter-type/{m.matter_type}")],
+             _fact("matterType", m.matter_ref, f"gl:matter-type/{m.matter_type}"), *stated],
         ))
 
         # ── advice memo ────────────────────────────────────────────────────
@@ -141,7 +145,10 @@ def build(est: Estate, cfg: dict, seed: int) -> list[Document]:
                 f"governed by the law of {juris[m.jurisdiction]}. We have not yet formed a "
                 f"final view and flag the points on which further instructions are needed.",
             ])
-            facts = [_fact("inJurisdiction", m.matter_ref, f"id:jurisdiction/{m.jurisdiction}")]
+            # The title names the client and the matter type, so the memo states them.
+            facts = [_fact("inJurisdiction", m.matter_ref, f"id:jurisdiction/{m.jurisdiction}"),
+                     _fact("forClient", m.matter_ref, m.client_ref),
+                     _fact("matterType", m.matter_ref, f"gl:matter-type/{m.matter_type}")]
             facts += [_fact("workedOn", m.matter_ref, p) for p in chosen]
             drafts.append(Document(
                 "", m.matter_ref, "advice-memo", on.isoformat(),
@@ -185,10 +192,14 @@ def build(est: Estate, cfg: dict, seed: int) -> list[Document]:
                 "", m.matter_ref, "closing-letter", on.isoformat(),
                 f"Closing letter — {type_label} — {client_name(m.client_ref)}", conf,
                 f"Dear Sirs,\n\n{said}\n\nThank you for instructing us on this matter. "
-                f"{lead} remains available should any question arise.\n\nYours faithfully,"
+                f"{lead}, who led it, remains available should any question arise."
+                f"\n\nYours faithfully,"
                 f"\n\n{FIRM}",
                 [_fact("hadOutcome", m.matter_ref, f"gl:outcome/{outcome}"),
-                 _fact("ledBy", m.matter_ref, m.lead_person_ref)],
+                 _fact("ledBy", m.matter_ref, m.lead_person_ref),
+                 # the title's "— <type> — <client>" states these too
+                 _fact("forClient", m.matter_ref, m.client_ref),
+                 _fact("matterType", m.matter_ref, f"gl:matter-type/{m.matter_type}")],
             ))
 
     drafts.sort(key=lambda d: (d.date, d.matter, d.doc_type))

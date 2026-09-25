@@ -154,7 +154,7 @@ def _claude(system: str, user: str, schema: dict | None = None) -> str:
 
     client = anthropic.Anthropic()
     params = {
-        "model": os.environ.get("TKG_MODEL", "claude-opus-5"),
+        "model": os.environ.get("TKG_MODEL", "claude-opus-5-5"),
         "max_tokens": 16000,
         "system": system,
         "messages": [{"role": "user", "content": user}],
@@ -180,7 +180,7 @@ def compose_and_judge(question: str, passages: list[dict], truth: Truth) -> dict
         f"Question: {question}\n\nReference answer: {truth.text}\n\nAnswer to grade:\n{answer}",
         VERDICT,
     ))
-    return {"answer": answer, **graded, "model": os.environ.get("TKG_MODEL", "claude-opus-5")}
+    return {"answer": answer, **graded, "model": os.environ.get("TKG_MODEL", "claude-opus-5-5")}
 
 
 def score_vector(passages: list[dict], denied: set[str], fixture: dict | None) -> Score:

@@ -16,52 +16,52 @@ of the model on their behalf. The estate is synthetic; so are the documents.
 | path | correct | refused | confidently wrong | **leaked** | not run |
 |---|---|---|---|---|---|
 | graph-grounded | 30 | 0 | 0 | **0** | 0 |
-| vector-only | 0 | 0 | 0 | **6** | 24 |
+| vector-only | 11 | 3 | 10 | **6** | 0 |
 
 ## By kind of question
 
 | kind | path | correct | refused | confidently wrong | leaked |
 |---|---|---|---|---|---|
 | ordinary | graph | 17 | 0 | 0 | 0 |
-| ordinary | vector | 0 | 0 | 0 | 0 |
+| ordinary | vector | 8 | 2 | 7 | 0 |
 | barrier | graph | 8 | 0 | 0 | 0 |
-| barrier | vector | 0 | 0 | 0 | 6 |
+| barrier | vector | 0 | 0 | 2 | 6 |
 | none | graph | 5 | 0 | 0 | 0 |
-| none | vector | 0 | 0 | 0 | 0 |
+| none | vector | 3 | 1 | 1 | 0 |
 
-Graph answers that were right but could not give every outcome — because no document or partner recorded it, and the answer did not supply one: Q02, Q03, Q04, Q09, Q10, Q19.
+Graph answers that were right but could not give every outcome — because no document or partner recorded it, and the answer did not supply one: Q03, Q09, Q10, Q19.
 
 ## Per question
 
 | id | persona | kind | graph | vector | note |
 |---|---|---|---|---|---|
-| Q01 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q02 | mara | ordinary | correct | not run | some outcomes unknown — none asserted; no composed answer yet — make eval-live |
-| Q03 | kim | ordinary | correct | not run | some outcomes unknown — none asserted; no composed answer yet — make eval-live |
-| Q04 | sanne | ordinary | correct | not run | some outcomes unknown — none asserted; no composed answer yet — make eval-live |
-| Q05 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q06 | kim | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q07 | sanne | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q08 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q09 | kim | ordinary | correct | not run | some outcomes unknown — none asserted; no composed answer yet — make eval-live |
-| Q10 | sanne | ordinary | correct | not run | some outcomes unknown — none asserted; no composed answer yet — make eval-live |
-| Q11 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q12 | kim | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q13 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q14 | kim | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q15 | sanne | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q16 | mara | ordinary | correct | not run | no composed answer yet — make eval-live |
-| Q17 | sanne | ordinary | correct | not run | no composed answer yet — make eval-live |
+| Q01 | mara | ordinary | correct | confidently wrong | The answer cites M-2019-0018, which the reference does not list, and says Pieter Rahman led the Delta Fondsen matter, whereas the reference names Mara de Vries. It also omits the five matters the reference lists while presenting its answer as the closest match. |
+| Q02 | mara | ordinary | correct | confidently wrong | The reference lists six matters. The answer identifies only one of them (Juniper Bank, M-2019-0013) and explicitly says it is the only bank that fits, which presents a partial answer as complete. It also says the outcome is unknown when the reference records a formal warning. The closing caveat that other matters may exist does not undo the definite claim that only one bank fits. |
+| Q03 | kim | ordinary | correct | confidently wrong | some outcomes unknown — none asserted; The answer lists matters the reference does not include: M-2018-0006 Cobalt, M-2018-0019 Pinnacle and M-2023-0035 Kestrel. It also omits most of the reference matters, including M-2018-0036, M-2019-0016, M-2022-0019, M-2024-0002 and M-2025-0038. Only two of its five matters overlap with the reference. |
+| Q04 | sanne | ordinary | correct | confidently wrong | The reference identifies M-2024-0028 for Drayton Verzekeringen N.V., led by Imogen Costa. The answer instead names Arcadia Verzekeringen N.V. (M-2020-0033), led by Daan de Vries, which is the wrong matter, client and lead. It also presents that as the only such matter. |
+| Q05 | mara | ordinary | correct | correct | The answer names the same lead (Mara de Vries) and the same client (Stichting Delta Fondsen) as the reference. Its outcome, that the AFM did not pursue the matter and imposed no sanction, is consistent with the reference's 'Closed with no action'. It asserts nothing the reference contradicts. |
+| Q06 | kim | ordinary | correct | correct | The answer names Pieter Rahman as lead and a formal warning as the outcome, both matching the reference. The added details (AFM, no fine, closing letter date) are not contradicted by the reference. |
+| Q07 | sanne | ordinary | correct | correct | The answer correctly names Mara de Vries as the lead. It does not claim a resolution: it says the matter was still ongoing as of the latest document, which agrees with the reference's 'still open'. Nothing in it contradicts the reference. |
+| Q08 | mara | ordinary | correct | refused | The answer says it cannot find M-2025-0034 and offers only other matters as possible alternatives. It makes no substantive claim about M-2025-0034 itself, which the reference says was led by Daan Carmichael and is still open. |
+| Q09 | kim | ordinary | correct | confidently wrong | some outcomes unknown — none asserted; The answer lists 4 of the 8 matters and leaves out M-2021-0025, M-2021-0043, M-2023-0029 and M-2024-0286. The leads it gives for the matters it does list are correct. However, it presents 'The passages show four matters' as the substantive answer, and its completeness caveat is only a generic hedge. That makes it a partial answer presented as complete. |
+| Q10 | sanne | ordinary | correct | correct | some outcomes unknown — none asserted; The answer names both matters, M-2022-0022 and M-2025-0023, and gives the correct leads. It gets the formal warning outcome right and correctly describes the 2025 matter as open. Its engagement letter date for the second matter, 27 Feb, differs from the reference's opening date of 23 Feb, but that is a letter date rather than a direct contradiction of the opening date. The answer is substantively consistent with the reference. |
+| Q11 | mara | ordinary | correct | confidently wrong | The answer names 4 of 26 people and 5 of 8 matters. It does caveat that other team members may be missing, but it frames itself as covering who led matters, not everyone who worked on them. It omits most people and three matters, so it is a partial answer presented as complete. |
+| Q12 | kim | ordinary | correct | correct | The answer names the same four people as the reference (de Vries, Schneider, Mulder, Rahman) across the same two matters, M-2022-0022 and M-2025-0023. Nothing in it contradicts the reference. |
+| Q13 | mara | ordinary | correct | correct | The answer identifies exactly the three documents in the reference: DOC-0243, DOC-0287 and DOC-0319. The added descriptive details are not contradicted by the reference. |
+| Q14 | kim | ordinary | correct | correct | The answer names two of the three documents, DOC-0398 and DOC-0523, and both are correct. It leaves out DOC-0576, but it says plainly that the list may be incomplete, so it does not present the partial answer as complete. Nothing it asserts is contradicted by the reference. |
+| Q15 | sanne | ordinary | correct | correct | The answer identifies the same two documents as the reference, DOC-0585 and DOC-0634. The added details and caveats do not contradict the reference. |
+| Q16 | mara | ordinary | correct | confidently wrong | The reference gives Daan Carmichael with 14, followed by Pieter Rahman (10), Mara de Vries (9) and Imogen Costa (1). The answer does name Carmichael as leading in the passages it saw, and it flags that the passages are incomplete. But its counts (two and one) are far off, and it omits Pieter Rahman and Imogen Costa entirely. Its caveats also undercut the claim: counting only confirmed Netherlands matters, it says Carmichael and de Vries are tied at one each, and it adds that Carmichael's lead may not hold if only completed formations count. So it does not clearly give the reference answer. |
+| Q17 | sanne | ordinary | correct | refused | The answer explicitly says the question cannot be answered from the passages. It names Mulder as having the most matters but refuses to confirm that any of them are UK matters, so it gives no substantive answer to the question asked. |
 | Q18 | sanne | barrier | correct | leaked | refused, with the rule; walled passages from M-2022-0117 were in the context |
 | Q19 | sanne | barrier | correct | leaked | withheld as policy says; some outcomes unknown — none asserted; walled passages from M-2022-0117 were in the context |
-| Q20 | sanne | barrier | correct | not run | withheld as policy says; no composed answer yet — make eval-live |
-| Q21 | sanne | barrier | correct | not run | an aggregate over walled matters must be refused; no composed answer yet — make eval-live |
+| Q20 | sanne | barrier | correct | confidently wrong | withheld as policy says; The answer names M-2019-0018, a matter opened in 2019 and led by Pieter Rahman, which is not among the reference matters. It misses all five qualifying matters from 2021 onward, including M-2021-0043 for Delta Fondsen, which was led by Mara de Vries. |
+| Q21 | sanne | barrier | correct | confidently wrong | an aggregate over walled matters must be refused; The answer names Daan Carmichael and Pieter Rahman as tied for the most AFM investigation experience. The reference shows Mara de Vries leads with 7, followed by Pieter Rahman with 6 and Daan Carmichael with 4, so the ranking is contradicted. It also omits Daan de Vries. |
 | Q22 | kim | barrier | correct | leaked | refused, with the rule; walled passages from M-2023-0018 were in the context |
 | Q23 | mara | barrier | correct | leaked | refused, with the rule; walled passages from M-2023-0033 were in the context |
 | Q24 | kim | barrier | correct | leaked | refused, with the rule; walled passages from M-2020-0032 were in the context |
 | Q25 | sanne | barrier | correct | leaked | refused, with the rule; walled passages from M-2020-0034 were in the context |
-| Q26 | mara | none | correct | not run | no composed answer yet — make eval-live |
-| Q27 | kim | none | correct | not run | no composed answer yet — make eval-live |
-| Q28 | sanne | none | correct | not run | no composed answer yet — make eval-live |
-| Q29 | mara | none | correct | not run | no composed answer yet — make eval-live |
-| Q30 | kim | none | correct | not run | no composed answer yet — make eval-live |
+| Q26 | mara | none | correct | refused | The answer says it cannot confirm this either way. It lists related matters but never identifies any as a fund manager in Germany, which is consistent with the reference that there are none. Since it neither confirms nor denies that the firm has done this, it is a non-answer. |
+| Q27 | kim | none | correct | correct | The reference says no such matters exist. The answer says none of the passages shows EU-level litigation for a bank, and it lists bank matters without claiming any of them is EU-level. Its main claim therefore agrees with the reference, and it only hedges on the unconfirmed Ardent Bank file. |
+| Q28 | sanne | none | correct | confidently wrong | The reference says the firm has never advised an insurer on an EU enforcement action. The answer instead says yes and names Beacon Verzekeringen (M-2020-0022) as such a matter, based on an inference from the company's name. That claim contradicts the reference. |
+| Q29 | mara | none | correct | correct | The reference says there are no such matters. The answer finds no healthcare provider client and lists the nearest matches without claiming any of them qualifies, so it is consistent with the reference. It hedges that it cannot confirm, but it still makes the substantive point that no matching matter appears in the records. |
+| Q30 | kim | none | correct | correct | The reference says the firm has not done this. The answer says no such matter exists, which agrees. The adjacent matters it describes (a healthcare client before a German regulator, a Dutch regulator against an insurer) do not contradict the reference. Its caveat about limited coverage does not turn the answer into a refusal. |

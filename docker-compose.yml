@@ -147,7 +147,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       # Only the regeneration jobs (make extract, make eval-live) use a model.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      TKG_MODEL: ${TKG_MODEL:-claude-opus-5}
+      TKG_MODEL: ${TKG_MODEL:-claude-opus-5-5}
     volumes:
       - ./reports:/app/reports
       - ./data:/app/data

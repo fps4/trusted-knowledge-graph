@@ -65,7 +65,7 @@ documents: ## Regenerate the firm's documents and the gold-set manifest from the
 	$(JOB) documents
 
 extract: ## Extraction through Claude (Batches API) → data/fixtures/extraction.jsonl — needs ANTHROPIC_API_KEY in .env
-	$(JOB) extract $(if $(LIMIT),--limit $(LIMIT)) $(if $(MISSING),--missing)
+	$(JOB) extract $(if $(LIMIT),--limit $(LIMIT)) $(if $(MISSING),--missing) $(if $(RESUME),--resume $(RESUME))
 
 extraction: ## Precision and recall against the manifest → reports/extraction.md
 	$(JOB) extraction-report
