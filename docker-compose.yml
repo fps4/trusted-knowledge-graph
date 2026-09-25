@@ -222,6 +222,23 @@ services:
       - ./secrets/risk.key:/run/secrets/persona.key:ro
     ports: ["127.0.0.1:${TKG_PORT_WEB_RISK:-3104}:3000"]
 
+  # A static index of the four screens: a short description and one link per person.
+  # No backend, read-only, and on compose's default network, which reaches none of
+  # the other services.
+  landing:
+    image: busybox:1.37
+    user: "${TKG_UID:-0}:${TKG_GID:-0}"
+    command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
+    volumes:
+      - ./web/landing:/www:ro
+    read_only: true
+    ports: ["127.0.0.1:${TKG_PORT_LANDING:-3100}:8080"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
   # Not a service: the image Claude Code starts, one container per persona, over
   # stdio. Built here so `make build` builds it; never started by compose.
   mcp:
