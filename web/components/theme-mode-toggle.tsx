@@ -14,7 +14,9 @@ export function ThemeModeToggle() {
 
   // `resolvedTheme` is undefined until next-themes hydrates; defer the icon swap
   // until after mount to avoid a hydration mismatch.
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isDark = mounted && resolvedTheme === 'dark';
   const label = isDark ? 'Switch to light' : 'Switch to dark';

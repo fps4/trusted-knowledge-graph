@@ -48,7 +48,11 @@ export function ChatView({
   const [busy, setBusy] = React.useState(false);
   const bottom = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), [turns]);
+  // Braces, not an expression: newer browsers return a Promise from scrollIntoView,
+  // and React 19 would call it as the effect's cleanup.
+  React.useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [turns]);
 
   // Apply a change to the assistant turn being streamed (always the last one).
   const update = (fn: (t: Extract<Turn, { role: 'assistant' }>) => void) =>
