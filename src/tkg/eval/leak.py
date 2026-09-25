@@ -410,6 +410,16 @@ def run(cfg, console) -> Result:
             doors.append((f"{name}() as {persona}", outcome, outcome == "refused"))
     outcome = clients["risk"].audit_subject("M-2022-0117").get("outcome", "?")
     doors.append(("audit_subject() as risk", outcome, outcome == "shown"))
+    outcome = clients["mara"].audit_verify().get("outcome", "?")
+    doors.append(("audit_verify() as mara", outcome, outcome == "refused"))
+
+    # Lineage is a read like any other: a walled derived graph has no lineage to show.
+    for persona in PERSONAS:
+        walled_graphs = sorted(derived_closure(facts, denials[persona]))[:2]
+        for g in walled_graphs:
+            outcome = clients[persona].lineage(iri.shorten(g)).get("outcome", "?")
+            doors.append((f"lineage({iri.shorten(g)}) as {persona}", outcome,
+                          outcome == "refused"))
 
     result = Result(disclosure=disclosure, cases=cases, doors=doors)
     result.store = _store_check(cfg, personas, denials)

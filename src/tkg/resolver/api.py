@@ -218,3 +218,19 @@ def review(body: ReviewRequest, persona: str = Depends(caller)) -> dict:
     resolver, _, _ = _state()
     sink = settings.load().data_dir / "reviews" / "decisions.jsonl"
     return resolver.review(persona, body.fact, body.verdict, sink)
+
+
+class LineageRequest(BaseModel):
+    graph: str
+
+
+@app.post("/lineage")
+def lineage_of(body: LineageRequest, persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.lineage_of(persona, body.graph)
+
+
+@app.post("/audit/verify")
+def audit_verify(persona: str = Depends(caller)) -> dict:
+    resolver, _, _ = _state()
+    return resolver.audit_verify(persona)
