@@ -9,18 +9,19 @@ Message Batches API; model `claude-opus-5-5`) and the generation manifest in
 > Read these scores as an upper bound, and the method as the transferable part: a
 > firm reproduces the table on its own corpus with a few hundred reviewed documents.
 
-Documents: 742 · extracted: 742 · refused: 0 · errored: 0
+Documents: 772 · extracted: 772 · refused: 0 · errored: 0
 
 ## By relation
 
 | relation | P@0.5 | R@0.5 | P@0.7 | R@0.7 | P@0.9 | R@0.9 |
 |---|---|---|---|---|---|---|
-| forClient | 1.00 | 0.93 | 1.00 | 0.93 | 1.00 | 0.53 |
-| hadOutcome | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| inJurisdiction | 0.81 | 1.00 | 0.89 | 1.00 | 1.00 | 0.90 |
+| citesMatter | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| forClient | 1.00 | 0.94 | 1.00 | 0.94 | 1.00 | 0.54 |
+| hadOutcome | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.97 |
+| inJurisdiction | 0.78 | 1.00 | 0.88 | 1.00 | 1.00 | 0.90 |
 | ledBy | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| matterType | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.96 |
-| workedOn | 0.90 | 1.00 | 1.00 | 1.00 | 1.00 | 0.94 |
+| matterType | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.97 |
+| workedOn | 0.84 | 1.00 | 1.00 | 1.00 | 1.00 | 0.94 |
 
 ## By document type
 
@@ -29,12 +30,13 @@ Documents: 742 · extracted: 742 · refused: 0 · errored: 0
 | advice-memo | 0.96 | 0.98 | 1.00 | 0.98 | 1.00 | 0.69 |
 | closing-letter | 0.92 | 0.98 | 0.96 | 0.98 | 1.00 | 0.82 |
 | engagement-letter | 1.00 | 0.98 | 1.00 | 0.98 | 1.00 | 0.95 |
+| knowledge-note | 0.82 | 1.00 | 0.99 | 1.00 | 1.00 | 0.91 |
 
 ## Overall
 
 | | P@0.5 | R@0.5 | P@0.7 | R@0.7 | P@0.9 | R@0.9 |
 |---|---|---|---|---|---|---|
-| all | 0.97 | 0.98 | 0.99 | 0.98 | 1.00 | 0.85 |
+| all | 0.96 | 0.98 | 0.99 | 0.98 | 1.00 | 0.86 |
 
 ## What could not be linked
 
@@ -42,7 +44,7 @@ Extracted, and not turned into an identifier — so not in the graph, and a miss
 against the gold set. Linking is exact on purpose: a guessed link turns a recall
 problem into a precision problem, and the second is the one that misleads a lawyer.
 
-Linked: 2880
+Linked: 3063
 
 | reason | facts |
 |---|---|
