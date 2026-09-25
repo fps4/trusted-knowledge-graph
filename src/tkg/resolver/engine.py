@@ -58,6 +58,12 @@ def _cell(cell: dict | None) -> str:
     return iri.shorten(cell["value"]) if cell["type"] == "uri" else cell["value"]
 
 
+def _passage_matters(hits: list[dict]) -> list[str]:
+    """Every matter the passages shown depend on — including what their documents
+    cite — so "who was shown anything derived from M-…" finds a citing note too."""
+    return sorted({m for h in hits for m in (h.get("matters") or [h["matter_id"]])})
+
+
 def _public(grounds: dict) -> dict:
     """What a person may be told about a rule: never which matter it was reached through."""
     return {k: v for k, v in grounds.items() if k != "via"}
@@ -216,6 +222,13 @@ class Resolver:
         denied_m, denied_g = decision.denied_matters(), decision.denied_graphs()
         permitted_m = [m for m in cand_matters if m not in denied_m]
         permitted_g = [g for g in cand_graphs if g not in denied_g]
+        # A passage needs every matter it depends on to be permitted — its own and
+        # what its document cites. The matters a permitted graph derives from are
+        # permitted by construction (a graph is allowed only if all of them are), so
+        # they widen what a passage may *depend on*, never which matters it is *from*.
+        # docs/decisions/0028.
+        cited_m = sorted({m for g in permitted_g for m in lineage_map.get(g, [])}
+                         - set(permitted_m))
 
         # A matter can be walled for this person without being a candidate — reached
         # only through the lineage of a denied graph. Its identifier is hashed too.
@@ -277,13 +290,13 @@ class Resolver:
         permit_token, permit_exp = None, None
         if rows and template.kind == "rows":
             permit_token, permit_exp = permit_mod.mint(
-                persona, trace, permitted_m, permitted_g, self.permit_key
+                persona, trace, permitted_m, permitted_g, self.permit_key, cited=cited_m
             )
         sources = self._sources(persona, cited, rows)
         passages = []
         if template.needs in ("passages", "both") and self._index_ready() and permitted_m:
             passages = self._search(persona, template.passage_query or template.question,
-                                    permitted_m)
+                                    permitted_m, cited_m)
         returned = {
             "rows": len(rows),
             "matters": sorted({r["matterRef"] for r in rows if r.get("matterRef")}),
@@ -294,7 +307,7 @@ class Resolver:
         }
         if passages:
             returned["passages"] = [p["chunk_id"] for p in passages]
-            returned["passage_matters"] = sorted({p["matter_id"] for p in passages})
+            returned["passage_matters"] = _passage_matters(passages)
         if template.kind == "aggregate":
             # What the count was computed over — "shown" in the only sense an
             # aggregate shows anything. The subject-centred audit needs it.
@@ -421,9 +434,15 @@ class Resolver:
             for d, k in sorted(keys.items())
         ]
 
-    def _search(self, persona: str, text: str, matters: list[str], k: int = 5) -> list[dict]:
-        """Passages, pre-filtered to the permitted matters — never filtered afterwards."""
-        hits = self.index.search(text, self.embed([text])[0], matters, k=k)
+    def _search(self, persona: str, text: str, matters: list[str], cited: list[str] = (),
+                k: int = 5) -> list[dict]:
+        """Passages, pre-filtered — never filtered afterwards. A passage must be *from*
+        one of `matters`, and *every* matter it depends on must be in `matters` or
+        `cited`: a note on a permitted matter that cites a walled one is never scored.
+        """
+        allowed = sorted(set(matters) | set(cited))
+        hits = self.index.search(text, self.embed([text])[0], allowed, k=k,
+                                 scope=list(matters))
         store = self.stores(persona) if self.stores else None
         for h in hits:
             if store is not None:
@@ -576,12 +595,13 @@ class Resolver:
             return {"trace": record["trace"], "outcome": "no-index",
                     "permit_for": claims["trace"], "passages": [],
                     "note": "The permit is valid; the index is not loaded."}
-        hits = self._search(persona, text or "", claims["matters"]) if claims["matters"] else []
+        hits = (self._search(persona, text or "", claims["matters"], claims.get("cited", []))
+                if claims["matters"] else [])
         record.update(
             outcome="answered",
             permit_trace=claims["trace"],
             returned={"passages": [h["chunk_id"] for h in hits],
-                      "passage_matters": sorted({h["matter_id"] for h in hits}),
+                      "passage_matters": _passage_matters(hits),
                       "links": len(hits)},
         )
         self._write(record)

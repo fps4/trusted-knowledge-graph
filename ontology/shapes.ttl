@@ -65,7 +65,7 @@ ssf:FactShape a sh:NodeShape ;
     sh:property [ sh:path ssf:factSubject   ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path ssf:factPredicate ; sh:minCount 1 ; sh:maxCount 1 ;
                   sh:in ( ssf:hadOutcome ssf:hasExpertise ssf:forClient ssf:ledBy
-                          ssf:matterType ssf:inJurisdiction ssf:workedOn ) ;
+                          ssf:matterType ssf:inJurisdiction ssf:workedOn ssf:citesMatter ) ;
                   sh:message "A fact may only use a predicate the ontology defines for facts. An unknown predicate is rejected, not stored." ] ;
     sh:property [ sh:path ssf:factObject    ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
     sh:property [ sh:path ssf:confidence    ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ;

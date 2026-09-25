@@ -12,12 +12,13 @@ behind is. The estate is synthetic.
 | | |
 |---|---|
 | disclosure policy | `withheld-count` |
-| questions asked | 160 |
+| questions asked | 250 |
 | … where the persona is denied the matter | 64 |
+| precedent notes citing a restricted matter, asked for as each persona | 45 |
 | **leaked** | **0** |
 | wrong refusals (including over-refusals) | 0 |
-| doors behaving (permit, decision record) | 16 / 16 |
-| audit records checked for clear-text denied identifiers | 164 |
+| doors behaving (permit, decision record) | 19 / 19 |
+| audit records checked for clear-text denied identifiers | 254 |
 | … found | 0 |
 | hash chain | intact |
 
@@ -64,6 +65,107 @@ matters are the filter, inside the query.
 | B-14 | mara | yes | 5 | nothing |
 | B-14 | sanne | yes | 5 | nothing |
 | B-14 | kim | no | 5 | nothing |
+| B-13 | mara | yes | 3 | nothing |
+| B-13 | sanne | no | 2 | nothing |
+| B-13 | kim | yes | 3 | nothing |
+| B-03 | mara | yes | 3 | nothing |
+| B-03 | sanne | no | 2 | nothing |
+| B-03 | kim | yes | 3 | nothing |
+| B-14 | mara | yes | 2 | nothing |
+| B-14 | sanne | yes | 2 | nothing |
+| B-14 | kim | no | 1 | nothing |
+| B-03 | mara | yes | 3 | nothing |
+| B-03 | sanne | no | 2 | nothing |
+| B-03 | kim | yes | 3 | nothing |
+| B-12 | mara | no | 2 | nothing |
+| B-12 | sanne | yes | 3 | nothing |
+| B-12 | kim | no | 2 | nothing |
+| B-12 | mara | no | 1 | nothing |
+| B-12 | sanne | yes | 2 | nothing |
+| B-12 | kim | no | 1 | nothing |
+| B-03 | mara | yes | 2 | nothing |
+| B-03 | sanne | no | 1 | nothing |
+| B-03 | kim | yes | 2 | nothing |
+| B-14 | mara | yes | 3 | nothing |
+| B-14 | sanne | yes | 3 | nothing |
+| B-14 | kim | no | 2 | nothing |
+| B-11 | mara | no | 2 | nothing |
+| B-11 | sanne | no | 2 | nothing |
+| B-11 | kim | no | 2 | nothing |
+| B-13 | mara | yes | 2 | nothing |
+| B-13 | sanne | no | 1 | nothing |
+| B-13 | kim | yes | 2 | nothing |
+| B-11 | mara | no | 1 | nothing |
+| B-11 | sanne | no | 1 | nothing |
+| B-11 | kim | no | 1 | nothing |
+| B-11 | mara | no | 1 | nothing |
+| B-11 | sanne | no | 1 | nothing |
+| B-11 | kim | no | 1 | nothing |
+| B-13 | mara | yes | 2 | nothing |
+| B-13 | sanne | no | 1 | nothing |
+| B-13 | kim | yes | 2 | nothing |
+| B-14 | mara | yes | 3 | nothing |
+| B-14 | sanne | yes | 3 | nothing |
+| B-14 | kim | no | 2 | nothing |
+| B-12 | mara | no | 1 | nothing |
+| B-12 | sanne | yes | 2 | nothing |
+| B-12 | kim | no | 1 | nothing |
+
+## Precedent notes — a document inherits the matters it cites
+
+A knowledge note filed on an open, unrestricted matter cites a restricted matter by
+its file number, with that matter's client and outcome. Each persona asks for the
+open matter's documents (CQ-10). Walled from the cited matter, the note must not be
+listed, linked or passed as a passage — and must be counted as withheld by lineage;
+allowed both, it must be listed. What a note cites is read from the manifest.
+
+| rule | cited | filed on | note | persona | may see the cited matter | outcome | as it should be |
+|---|---|---|---|---|---|---|---|
+| B-13 | M-2020-0034 | M-2020-0020 | DOC-0743 | mara | yes | answered | yes |
+| B-13 | M-2020-0034 | M-2020-0020 | DOC-0743 | sanne | no | answered-with-withheld | yes |
+| B-13 | M-2020-0034 | M-2020-0020 | DOC-0743 | kim | yes | answered | yes |
+| B-03 | M-2022-0117 | M-2023-0013 | DOC-0748 | mara | yes | answered | yes |
+| B-03 | M-2022-0117 | M-2023-0013 | DOC-0748 | sanne | no | answered-with-withheld | yes |
+| B-03 | M-2022-0117 | M-2023-0013 | DOC-0748 | kim | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2024-0013 | DOC-0753 | mara | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2024-0013 | DOC-0753 | sanne | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2024-0013 | DOC-0753 | kim | no | answered-with-withheld | yes |
+| B-03 | M-2022-0117 | M-2024-0286 | DOC-0754 | mara | yes | answered | yes |
+| B-03 | M-2022-0117 | M-2024-0286 | DOC-0754 | sanne | no | answered-with-withheld | yes |
+| B-03 | M-2022-0117 | M-2024-0286 | DOC-0754 | kim | yes | answered | yes |
+| B-12 | M-2023-0033 | M-2024-0046 | DOC-0756 | mara | no | answered-with-withheld | yes |
+| B-12 | M-2023-0033 | M-2024-0046 | DOC-0756 | sanne | yes | answered | yes |
+| B-12 | M-2023-0033 | M-2024-0046 | DOC-0756 | kim | no | answered-with-withheld | yes |
+| B-12 | M-2023-0033 | M-2020-0015 | DOC-0757 | mara | no | answered-with-withheld | yes |
+| B-12 | M-2023-0033 | M-2020-0015 | DOC-0757 | sanne | yes | answered | yes |
+| B-12 | M-2023-0033 | M-2020-0015 | DOC-0757 | kim | no | answered-with-withheld | yes |
+| B-03 | M-2022-0117 | M-2025-0041 | DOC-0759 | mara | yes | answered | yes |
+| B-03 | M-2022-0117 | M-2025-0041 | DOC-0759 | sanne | no | answered-with-withheld | yes |
+| B-03 | M-2022-0117 | M-2025-0041 | DOC-0759 | kim | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0050 | DOC-0762 | mara | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0050 | DOC-0762 | sanne | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0050 | DOC-0762 | kim | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2022-0018 | DOC-0763 | mara | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2022-0018 | DOC-0763 | sanne | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2022-0018 | DOC-0763 | kim | no | answered-with-withheld | yes |
+| B-13 | M-2020-0034 | M-2025-0034 | DOC-0764 | mara | yes | answered | yes |
+| B-13 | M-2020-0034 | M-2025-0034 | DOC-0764 | sanne | no | answered-with-withheld | yes |
+| B-13 | M-2020-0034 | M-2025-0034 | DOC-0764 | kim | yes | answered | yes |
+| B-11 | M-2023-0018 | M-2024-0024 | DOC-0765 | mara | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2024-0024 | DOC-0765 | sanne | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2024-0024 | DOC-0765 | kim | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2024-0036 | DOC-0766 | mara | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2024-0036 | DOC-0766 | sanne | no | answered-with-withheld | yes |
+| B-11 | M-2023-0018 | M-2024-0036 | DOC-0766 | kim | no | answered-with-withheld | yes |
+| B-13 | M-2020-0034 | M-2025-0019 | DOC-0768 | mara | yes | answered | yes |
+| B-13 | M-2020-0034 | M-2025-0019 | DOC-0768 | sanne | no | answered-with-withheld | yes |
+| B-13 | M-2020-0034 | M-2025-0019 | DOC-0768 | kim | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0007 | DOC-0769 | mara | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0007 | DOC-0769 | sanne | yes | answered | yes |
+| B-14 | M-2020-0032 | M-2025-0007 | DOC-0769 | kim | no | answered-with-withheld | yes |
+| B-12 | M-2023-0033 | M-2025-0036 | DOC-0770 | mara | no | answered-with-withheld | yes |
+| B-12 | M-2023-0033 | M-2025-0036 | DOC-0770 | sanne | yes | answered | yes |
+| B-12 | M-2023-0033 | M-2025-0036 | DOC-0770 | kim | no | answered-with-withheld | yes |
 
 ## The document store — the second enforcement point
 
@@ -72,27 +174,42 @@ into per-persona MinIO users) against OPA's decision for the document's matter. 
 the stolen identifier: each restricted document fetched with the credentials of each
 person walled from it — the case where an id leaked by some other route.
 
+Where a document cites nothing, the graph and the store must agree exactly. Where it
+cites another matter, the graph may be *stricter* than the store — the DMS does not
+know what a document cites — but never broader; only broader fails the gate.
+
 | | |
 |---|---|
-| persona × document checks | 3710 |
-| **disagreements with OPA** | **0** |
+| persona × document checks | 3860 |
+| **the graph broader than the store, or disagreeing where nothing is cited** | **0** |
+| documents citing another matter, per the graph's lineage | 30 |
+| … where the store opens what the graph withholds | 15 documents, 24 person × document pairs |
 | stolen-id fetches refused by the store | 15 / 15 |
 
-## The comparison — vector-only retrieval
+**Finding.** The DMS is weaker than the graph on 15 documents that cite walled matters: it filters by the matter a document is filed on, and does not
+know what the document cites. Classification write-back to the DMS is the
+programme's fix; the lab does not add per-object denies the DMS would not have.
 
-The same kind of question, answered the ordinary way: top-5 passages over the whole
-index, no access decision, as a retrieval layer built by a service account behaves.
-Not a pass or fail — the number the design is measured against.
+## The comparison — the index asked directly, three filters
 
-| | |
-|---|---|
-| questions about a restricted matter, asked by someone walled from it | 8 |
-| **returned passages from a walled matter** | **8** |
-| walled passages returned | 11 |
+Questions about each restricted matter, asked as each person walled from it — one
+naming the client, one asking for precedent and naming nothing. Top-5 passages,
+filtered three ways. A leak is a passage from a document that depends, per the
+manifest, on a walled matter: filed on one, or citing one. Not a pass or fail —
+the numbers the design is measured against.
 
-- sanne asked about a regulatory-investigation: top-5 held 2 passage(s) from walled matters (M-2022-0117)
-- mara asked about a corporate-transaction: top-5 held 1 passage(s) from walled matters (M-2023-0018)
-- sanne asked about a corporate-transaction: top-5 held 1 passage(s) from walled matters (M-2023-0018)
+| filter | questions | **returned walled passages** | walled passages | … through a citation |
+|---|---|---|---|---|
+| no filter — a retrieval layer built by a service account | 16 | **16** | 61 | 52 |
+| document-level ACL — the passage's own matter, as a DMS-synced ACL does | 16 | **16** | 53 | 53 |
+| every matter the passage depends on — the resolver's filter | 16 | **0** | 0 | 0 |
+
+- `none` — sanne, client-named question about a regulatory-investigation: top-5 held 5 walled passage(s) (DOC-0321, DOC-0469, DOC-0748, DOC-0754, DOC-0759)
+- `none` — sanne, precedent question about a regulatory-investigation: top-5 held 4 walled passage(s) (DOC-0743, DOC-0759, DOC-0764, DOC-0768)
+- `none` — mara, client-named question about a corporate-transaction: top-5 held 4 walled passage(s) (DOC-0507, DOC-0763, DOC-0765, DOC-0766)
+- `doc-acl` — sanne, client-named question about a regulatory-investigation: top-5 held 3 walled passage(s) (DOC-0748, DOC-0754, DOC-0759)
+- `doc-acl` — sanne, precedent question about a regulatory-investigation: top-5 held 4 walled passage(s) (DOC-0743, DOC-0759, DOC-0764, DOC-0768)
+- `doc-acl` — mara, client-named question about a corporate-transaction: top-5 held 3 walled passage(s) (DOC-0763, DOC-0765, DOC-0766)
 
 ## Identities that must see nothing
 
@@ -161,6 +278,9 @@ The permit, and the decision record — which only Risk & Compliance may read.
 | audit_person() as percy-svc | refused | yes |
 | audit_trace() as percy-svc | refused | yes |
 | audit_subject() as risk | shown | yes |
+| audit_verify() as mara | refused | yes |
+| lineage(g:asserted/P-0101/2023-07-05) as sanne | refused | yes |
+| lineage(g:asserted/P-0103/2023-09-12) as sanne | refused | yes |
 
 ## Legend
 

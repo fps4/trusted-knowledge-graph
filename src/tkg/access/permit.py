@@ -23,8 +23,10 @@ class PermitError(Exception):
 
 def mint(
     persona: str, trace: str, matters: list[str], graphs: list[str], key: bytes,
-    now: float | None = None,
+    now: float | None = None, cited: list[str] | tuple = (),
 ) -> tuple[str, int]:
+    """`matters`: what passages may be *from*. `cited`: further matters a passage may
+    *depend on* — cited by a permitted document, and permitted themselves."""
     issued = int(now if now is not None else time.time())
     exp = issued + TTL_SECONDS
     token = jwt.encode(
@@ -33,6 +35,7 @@ def mint(
             "trace": trace,
             "matters": sorted(matters),
             "graphs": sorted(graphs),
+            "cited": sorted(cited),
             "aud": AUDIENCE,
             "iat": issued,
             "exp": exp,

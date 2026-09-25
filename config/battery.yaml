@@ -1,9 +1,10 @@
-# The evaluation battery: thirty competency questions with known answers.
+# The evaluation battery: competency questions with known answers.
 #
 # Each question is asked two ways:
 #   graph   through the resolver, as the persona, bound to a template — the design
-#   vector  as plain words, answered by a model from the top-5 passages over the whole
-#           index, with no access decision — the ordinary way
+#   vector  as plain words, answered by a model from the top-5 passages of the index
+#           behind a document-level ACL (each passage's own matter against what the
+#           persona may see) — the ordinary way, when the DMS already filters
 #
 # `truth` says how the right answer is computed — from the estate itself, in Python,
 # never from the graph being scored. The answer a *persona* should get removes what
@@ -225,3 +226,34 @@ questions:
     question: Have we advised a healthcare provider on a Dutch enforcement action?
     graph: {template: CQ-02, slots: {client_type: gl:client-type/healthcare-provider, matter_type: gl:matter-type/enforcement-action, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
     truth: {type: matters, client_type: healthcare-provider, matter_type: enforcement-action, jurisdiction: NL, since: 2018-01-01}
+
+  # ── precedent: asked the way a lawyer asks, naming no walled matter ──────────
+  # Knowledge notes filed on open matters cite restricted ones by file number
+  # (ADR 0028). A document-level ACL lets them through; lineage does not.
+  - id: Q31
+    persona: sanne
+    kind: barrier
+    question: What precedent do we have on AFM settlements for fund managers?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/fund-manager, matter_type: gl:matter-type/regulatory-investigation, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: matters, client_type: fund-manager, matter_type: regulatory-investigation, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q32
+    persona: sanne
+    kind: barrier
+    question: How did similar AFM investigations end? What precedent do we hold on M-2025-0041?
+    graph: {template: CQ-10, slots: {matter: M-2025-0041}}
+    truth: {type: documents, matter: M-2025-0041}
+
+  - id: Q33
+    persona: kim
+    kind: barrier
+    question: What precedent do we have on corporate transactions for Dutch energy companies, and how did they turn out?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/energy-company, matter_type: gl:matter-type/corporate-transaction, jurisdiction: id:jurisdiction/NL, since: 2018-01-01}}
+    truth: {type: matters, client_type: energy-company, matter_type: corporate-transaction, jurisdiction: NL, since: 2018-01-01}
+
+  - id: Q34
+    persona: mara
+    kind: barrier
+    question: How did similar FCA investigations of UK corporates end — what precedent do we have?
+    graph: {template: CQ-02, slots: {client_type: gl:client-type/corporate, matter_type: gl:matter-type/regulatory-investigation, jurisdiction: id:jurisdiction/GB, since: 2018-01-01}}
+    truth: {type: matters, client_type: corporate, matter_type: regulatory-investigation, jurisdiction: GB, since: 2018-01-01}

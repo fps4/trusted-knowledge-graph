@@ -34,15 +34,18 @@ def score(docs: list[Document], extraction: dict[str, dict], texts: dict[str, st
         if row is None:
             continue
         extracted_docs += 1
-        gold = {(f["predicate"], _gold_object(f["object"])) for f in d.facts}
+        # The subject counts: a knowledge note states facts about the matter it cites,
+        # and crediting them to the note's own matter would be wrong. ADR 0028.
+        gold = {(f["predicate"], f["subject"], _gold_object(f["object"])) for f in d.facts}
         predicted = linked_facts(d, row, texts.get(d.doc_id, ""), lookups, stats)
         for t in THRESHOLDS:
-            kept = {(f["predicate"], f["object"]) for f in predicted if f["confidence"] >= t}
-            for pred, obj in kept:
-                hit = (pred, obj) in gold
+            kept = {(f["predicate"], f["subject"], f["object"]) for f in predicted
+                    if f["confidence"] >= t}
+            for pred, subj, obj in kept:
+                hit = (pred, subj, obj) in gold
                 for dim in (("relation", pred), ("doc_type", d.doc_type), ("all", "all")):
                     per[(t, *dim)]["tp" if hit else "fp"] += 1
-            for pred, _obj in gold - kept:
+            for pred, _subj, _obj in gold - kept:
                 for dim in (("relation", pred), ("doc_type", d.doc_type), ("all", "all")):
                     per[(t, *dim)]["fn"] += 1
     return {"docs": extracted_docs, "cells": dict(per), "stats": stats}
