@@ -13,7 +13,8 @@ before anything is retrieved (docs/decisions/0009):
   denied by their matter. `None` means the question reaches no matter at all.
 - `graphs` — every `GRAPH ?var` in the query, and what kind of graph it may be:
   `spine` (the systems of record), `vocab` (ontology and vocabularies) or
-  `derived` (decided by lineage). The binder constrains every one of them; a
+  `derived` (decided by lineage) or `guard` (see below). The binder constrains
+  every one of them; a
   graph variable the template does not declare is a test failure, because an
   unconstrained `GRAPH ?x` can match a graph nobody decided on.
 
@@ -23,6 +24,13 @@ Two placeholders carry the decision into the query:
   nothing in the candidate query.
 - `{{graph:<var>}}` — a filter on that graph variable, placed inside the same
   group as its GRAPH pattern so an OPTIONAL stays optional.
+
+A `guard` graph is a derived graph that withholds a *row* rather than supplying
+one: `FILTER NOT EXISTS { GRAPH ?x { … } {{graph:x}} }` renders as "unless a graph
+not permitted says so". CQ-10 uses it so that a document whose extracted graph is
+walled by lineage — a note citing a matter the person cannot see — is not listed,
+and so no link is minted for it. The guard reaches nothing in the candidate query;
+the graphs it tests are the candidates `?fg` already reached. docs/decisions/0028.
 """
 
 from __future__ import annotations
@@ -121,6 +129,18 @@ class Template:
 
     def _render_graphs(self, where: str, permitted_graphs: list[str] | None) -> str:
         for var, kind in self.graphs.items():
+            if kind == "guard":
+                # Inside a FILTER NOT EXISTS: the row goes when a graph not permitted
+                # matches. In the candidate query, nothing is withheld.
+                if permitted_graphs is None:
+                    clause = "FILTER (false)"
+                elif permitted_graphs:
+                    listed = ", ".join(f"<{g}>" for g in permitted_graphs)
+                    clause = f"FILTER (?{var} NOT IN ({listed}))"
+                else:
+                    clause = ""  # nothing permitted: any such graph withholds the row
+                where = where.replace("{{graph:" + var + "}}", clause)
+                continue
             if kind == "spine":
                 allowed = iri.SPINE_GRAPHS
             elif kind == "vocab":
@@ -171,6 +191,7 @@ class Template:
 SPINE = "spine"
 VOCAB = "vocab"
 DERIVED = "derived"
+GUARD = "guard"
 
 # The outcome, if one was told — optional, because most matters have none and an
 # answer must not invent one.
@@ -469,13 +490,14 @@ CQ10 = Template(
     "I read them?",
     slots=(Slot("matter", "iri", iri.matter("M-2021-0043"), "the matter, e.g. M-2021-0043"),),
     columns=("docId", "docType", "date", "fact", "value", "confidence", "review", "fg"),
-    graphs={"g": SPINE, "fg": DERIVED},
+    graphs={"g": SPINE, "fg": DERIVED, "xg": GUARD},
     needs="both",
     passage_query="outcome of the matter, the advice given, and who acted",
     note=(
         "Facts extracted from each document, with confidence and review state — and the "
         "passages behind them, from the index, filtered to what you may see. Every document "
-        "carries a link that opens it, minted with your own document-store credentials."
+        "carries a link that opens it, minted with your own document-store credentials. A "
+        "document that cites a matter you cannot see is withheld, and counted."
     ),
     select="?docId ?docType ?date ?fact ?value ?confidence ?review ?fg",
     where="""
@@ -486,6 +508,9 @@ CQ10 = Template(
   }
   {{graph:g}}
   FILTER (?matter = {{matter}})
+  # A document whose extracted graph was not permitted — derived from a matter this
+  # person cannot see, such as the one a precedent note cites — is not listed.
+  FILTER NOT EXISTS { GRAPH ?xg { ?xf ssf:fromDocument ?doc } {{graph:xg}} }
   BIND (STRAFTER(STR(?doc), "/id/doc/") AS ?docId)
   OPTIONAL {
     GRAPH ?fg {

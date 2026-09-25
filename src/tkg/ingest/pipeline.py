@@ -63,10 +63,13 @@ def upload(store: dms.Store, docs: list[documents_mod.Document], pdfs: dict) -> 
 
 
 def index(index_url: str, docs: list[documents_mod.Document], texts: dict,
-          cache_dir: Path) -> tuple[int, int]:
+          cache_dir: Path, cites: dict[str, list[str]] | None = None) -> tuple[int, int]:
+    """`cites`: doc id -> the matters it cites, from the *linked extraction* — what the
+    graph knows, not the manifest. A citation extraction missed is not in the filter."""
     chunks: list[Chunk] = []
     for d in docs:
-        chunks += chunk(d.doc_id, d.matter, d.doc_type, texts[d.doc_id])
+        chunks += chunk(d.doc_id, d.matter, d.doc_type, texts[d.doc_id],
+                        (cites or {}).get(d.doc_id, ()))
     write_chunks(chunks, cache_dir / "chunks.jsonl")
     vectors_path = cache_dir / f"vectors-{fingerprint(chunks)[:16]}.json"
     if vectors_path.exists():

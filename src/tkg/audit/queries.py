@@ -89,7 +89,7 @@ class AuditReader:
                 if matter_ref in (returned.get("counted") or []):
                     how.append("counted in an aggregate")
                 if matter_ref in (returned.get("passage_matters") or []):
-                    how.append("shown passages from its documents")
+                    how.append("shown passages from its documents, or citing it")
                 for g in returned.get("graphs") or []:
                     if g in derived_short or g in derived:
                         how.append(f"by lineage: {iri.shorten(g)}")
