@@ -707,3 +707,81 @@ INSERT DATA {{
         self._write(record)
         return {"trace": record["trace"], "outcome": verdict, "fact": fact_id,
                 "review_graph": iri.shorten(review_graph), "by": person_ref, "on": on}
+
+    # ── lineage: where a graph's facts came from, for someone allowed to see it ──
+    SPINE_SOURCES = {
+        "spine/pms": "Practice management — mapped by mappings/pms.r2rml.ttl",
+        "spine/crm": "CRM — mapped by mappings/crm.r2rml.ttl",
+        "spine/hr": "HR — mapped by mappings/hr.r2rml.ttl",
+        "spine/dms": "Document store metadata — id, matter, type, date, key; never text",
+    }
+
+    def lineage_of(self, persona: str, graph: str) -> dict:
+        """The provenance chain of one graph: derived from what, attributed to whom,
+        down to the matter — decided like any other read. docs/decisions/0027."""
+        record = self._record(persona, "lineage")
+        target = iri.GRAPH + graph[2:] if graph.startswith("g:") else graph
+        if not target.startswith(iri.GRAPH) or not re.match(r"^[A-Za-z0-9/_.:\-]+$", target):
+            record.update(outcome="refused-invalid")
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-invalid"}
+        short = iri.shorten(target)
+        if short[2:] in self.SPINE_SOURCES:
+            record.update(outcome="shown", of_graph=short)
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "shown", "graph": short,
+                    "kind": "system of record", "source": self.SPINE_SOURCES[short[2:]],
+                    "chain": []}
+        lineage_map = lineage(self.fuseki, [target])
+        try:
+            decision = self.opa.decide(self.personas[persona]["principal"], [], lineage_map)
+        except PolicyUnavailable as exc:
+            record.update(outcome="refused-policy-unavailable", reason=str(exc)[:200])
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused-policy-unavailable"}
+        if not decision.graphs.get(target, {}).get("allow"):
+            record.update(outcome="refused", of_graph=self.hasher("graph", target))
+            self._write(record)
+            return {"trace": record["trace"], "outcome": "refused",
+                    "reason": "No graph you may see has that name."}
+        rows = self.fuseki.query(iri.PREFIXES + f"""
+SELECT ?from ?to ?by ?type ?docType ?docDate ?docMatter WHERE {{
+  GRAPH <{iri.G_PROV}> {{
+    <{target}> prov:wasDerivedFrom* ?from .
+    ?from prov:wasDerivedFrom ?to .
+    OPTIONAL {{ ?from prov:wasAttributedTo ?by }}
+  }}
+  OPTIONAL {{ GRAPH <{iri.G_SPINE_DMS}> {{
+    ?to ssf:docType ?docType ; ssf:documentDate ?docDate ; ssf:documentMatter ?docMatter }} }}
+}}""")["results"]["bindings"]
+        chain = []
+        for r in rows:
+            v = {k: c["value"] for k, c in r.items()}
+            to = v["to"]
+            kind = ("matter" if iri.matter_ref(to) else "document" if "/id/doc/" in to
+                    else "graph" if to.startswith(iri.GRAPH) else "entity")
+            chain.append({
+                "from": iri.shorten(v["from"]), "to": iri.shorten(to), "kind": kind,
+                "attributed_to": iri.shorten(v["by"]) if v.get("by") else None,
+                **({"document": {"type": v["docType"], "date": v["docDate"],
+                                 "matter": iri.matter_ref(v["docMatter"])}}
+                   if v.get("docType") else {}),
+            })
+        facts = self.fuseki.query(iri.PREFIXES + (
+            f"SELECT (COUNT(?f) AS ?n) WHERE {{ GRAPH <{target}> {{ ?f a ssf:Fact }} }}"
+        ))["results"]["bindings"]
+        record.update(outcome="shown", of_graph=short, returned={"graphs": [short]})
+        self._write(record)
+        return {"trace": record["trace"], "outcome": "shown", "graph": short,
+                "kind": "derived", "facts": int(facts[0]["n"]["value"]) if facts else 0,
+                "matters": lineage_map.get(target, []),
+                "chain": sorted(chain, key=lambda c: (c["from"], c["to"]))}
+
+    def audit_verify(self, persona: str) -> dict:
+        from ..audit.chain import verify
+
+        return self._audit(persona, "audit.verify", {}, lambda: {
+            "chain": (lambda v: {"ok": v.ok, "records": v.records, "head": v.head,
+                                 "broken_at": v.broken_at, "reason": v.reason})(
+                verify(self.writer.path))
+        })

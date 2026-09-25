@@ -57,6 +57,12 @@ class ResolverClient:
     def review(self, fact: str, verdict: str) -> dict:
         return self._call("POST", "/review", {"fact": fact, "verdict": verdict})
 
+    def lineage(self, graph: str) -> dict:
+        return self._call("POST", "/lineage", {"graph": graph})
+
+    def audit_verify(self) -> dict:
+        return self._call("POST", "/audit/verify", {})
+
     def audit_trace(self, trace: str) -> dict:
         return self._call("POST", "/audit/trace", {"trace": trace})
 
