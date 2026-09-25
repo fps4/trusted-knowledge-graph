@@ -54,7 +54,8 @@ def render_pdf(doc: Document) -> bytes:
             if y < 25 * mm:
                 pdf.showPage()
                 y = height - 25 * mm
-            bold = chunk in (doc.title, "MEMORANDUM") or chunk.startswith("STRICTLY")
+            bold = (chunk in (doc.title, "MEMORANDUM", "KNOWLEDGE NOTE")
+                    or chunk.startswith("STRICTLY"))
             pdf.setFont("Helvetica-Bold" if bold else "Helvetica", 10)
             if chunk == FOOTER:
                 pdf.setFont("Helvetica-Oblique", 7)

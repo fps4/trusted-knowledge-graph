@@ -4,11 +4,13 @@ Every document is generated from the estate, and the generation manifest records
 exactly which facts it carries. That manifest is the gold set: extraction is
 scored against it, and it cost no lawyer hours. See docs/decisions/0020.
 
-Three types, each carrying different facts:
+Four types, each carrying different facts:
 
     engagement-letter  every matter        forClient · ledBy · matterType
     advice-memo        ~35% of matters     inJurisdiction · workedOn (the team)
     closing-letter     ~80% of closed      hadOutcome · ledBy
+    knowledge-note     30, on open matters citesMatter · and the cited matter's
+                                           client, type and outcome
 
 Outcomes are in no system of record; a closed matter with no closing letter has
 an outcome the lab can never learn, which is the point. The mess is carried
@@ -205,7 +207,130 @@ def build(est: Estate, cfg: dict, seed: int) -> list[Document]:
     drafts.sort(key=lambda d: (d.date, d.matter, d.doc_type))
     for n, d in enumerate(drafts, start=1):
         d.doc_id = f"DOC-{n:04d}"
-    return drafts
+    # Knowledge notes come last, from their own random stream and numbered after
+    # everything else: adding them moves no existing document, id or byte.
+    notes = knowledge_notes(est, cfg, seed)
+    for n, d in enumerate(notes, start=len(drafts) + 1):
+        d.doc_id = f"DOC-{n:04d}"
+    return drafts + notes
+
+
+# ── knowledge notes: open matters that cite closed ones ──────────────────────
+NOTES_PER_RESTRICTED = 3
+CONTROL_NOTES = 15
+
+
+def _cap(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _outcome_sentence(outcome: str, regulator: str) -> str:
+    return {
+        "no-action": f"{_cap(regulator)} closed its investigation without taking any action.",
+        "formal-warning": f"It ended with a formal warning from {regulator}; no fine was imposed.",
+        "settled-fine": f"It was resolved by settlement with {regulator}, the client paying an "
+                        "administrative fine.",
+        "fine-imposed": f"{_cap(regulator)} imposed a fine on the client.",
+        "judgment-for": "The court found for the client on all claims.",
+        "judgment-against": "The court found against the client.",
+        "settled": "The parties settled, and the proceedings were withdrawn.",
+        "completed": "The transaction completed.",
+        "abandoned": "The client decided not to proceed, and the matter was abandoned.",
+        "advice-delivered": "We delivered our final advice and closed the file.",
+    }[outcome]
+
+
+def knowledge_notes(est: Estate, cfg: dict, seed: int) -> list[Document]:
+    """Precedent notes: filed on an OPEN, unrestricted matter, citing a closed one by
+    its file number, with that matter's client and true outcome.
+
+    The realistic leak. The note sits on an open matter, so the DMS — and any filter
+    on a passage's own matter — lets it through; the matter it cites may be walled.
+    Three notes cite each restricted matter, and fifteen cite unrestricted ones as a
+    control. docs/decisions/0028.
+
+    A note is written by the knowledge lawyer (grade `knowledge`) — except one citing
+    a restricted matter, which only someone inside it could write: that one is
+    written by the precedent's lead partner. Own random stream, drawn after
+    everything else, so no other document moves.
+    """
+    rng = random.Random(seed * 13 + 11)
+    people = {p.person_ref: f"{p.given_name} {p.family_name}" for p in est.people}
+    knowledge = sorted(p.person_ref for p in est.people if p.grade == "knowledge")
+    clients = {c.client_ref: c.name for c in est.clients}
+    types = _labels(cfg, "matter_types")
+    as_of = date.fromisoformat(str(cfg["as_of"]))
+    restricted = [r.matter_ref for r in est.restrictions]
+    matters = {m.matter_ref: m for m in est.matters}
+    hosts_all = sorted(
+        (m for m in est.matters if m.closed_on is None and m.matter_ref not in restricted),
+        key=lambda m: m.matter_ref,
+    )
+    used: set[str] = set()
+
+    def hosts_for(cited) -> list:
+        free = [m for m in hosts_all if m.matter_ref not in used
+                and m.matter_type == cited.matter_type]
+        near = [m for m in free if m.jurisdiction == cited.jurisdiction]
+        return near if len(near) >= NOTES_PER_RESTRICTED else free
+
+    pairs: list[tuple] = []
+    for ref in restricted:
+        cited = matters[ref]
+        for host in rng.sample(hosts_for(cited), k=NOTES_PER_RESTRICTED):
+            used.add(host.matter_ref)
+            pairs.append((host, cited))
+    closed = sorted(ref for ref in est.outcomes if ref not in restricted)
+    for ref in rng.sample(closed, k=len(closed)):
+        if len(pairs) >= NOTES_PER_RESTRICTED * len(restricted) + CONTROL_NOTES:
+            break
+        cited = matters[ref]
+        options = hosts_for(cited)
+        if not options:
+            continue
+        host = rng.choice(options)
+        used.add(host.matter_ref)
+        pairs.append((host, cited))
+
+    notes: list[Document] = []
+    for host, cited in pairs:
+        outcome = est.outcomes[cited.matter_ref]
+        type_label = types[host.matter_type].lower()
+        a_type = f"{'an' if type_label[0] in 'aeiou' else 'a'} {type_label}"
+        author = (people[cited.lead_person_ref] if cited.matter_ref in restricted
+                  else people[knowledge[0]] if knowledge else "Knowledge team")
+        on = max(host.opened_on, cited.closed_on) + timedelta(days=rng.randint(7, 60))
+        on = min(on, as_of)
+        said = _outcome_sentence(outcome, REGULATOR.get(cited.jurisdiction, "the regulator"))
+        client = clients[cited.client_ref]
+        body = rng.choice([
+            f"We were asked for precedent from the firm's own files for this {type_label}. "
+            f"The closest is our matter {cited.matter_ref}, {a_type} for {client}. "
+            f"{said}\n\nThe working papers are on the file under that reference; ask the "
+            f"partner who ran it before relying on them.",
+            f"Precedent for this {type_label}: our matter {cited.matter_ref}, {a_type} "
+            f"for {client}. {said}\n\nThe approach taken there is a useful starting point. "
+            f"Quote the file number when asking for the working papers.",
+        ])
+        notes.append(Document(
+            "", host.matter_ref, "knowledge-note", on.isoformat(),
+            f"Knowledge note — precedent for this {type_label}", "Private and confidential",
+            f"KNOWLEDGE NOTE\nTo: {people[host.lead_person_ref]}\nFrom: {author}\n\n{body}",
+            # Exactly what the note says: this matter's type, that it cites the other,
+            # and the cited matter's type, client and outcome — subject the cited matter.
+            [_fact("matterType", host.matter_ref, f"gl:matter-type/{host.matter_type}"),
+             _fact("citesMatter", host.matter_ref, cited.matter_ref),
+             _fact("matterType", cited.matter_ref, f"gl:matter-type/{cited.matter_type}"),
+             _fact("forClient", cited.matter_ref, cited.client_ref),
+             _fact("hadOutcome", cited.matter_ref, f"gl:outcome/{outcome}")],
+        ))
+    notes.sort(key=lambda d: (d.date, d.matter))
+    return notes
+
+
+def cited_matters(doc: Document) -> list[str]:
+    """What a document cites, per its manifest — the ground truth, not the extraction."""
+    return sorted({f["object"] for f in doc.facts if f["predicate"] == "citesMatter"})
 
 
 def render_text(d: Document) -> str:
