@@ -45,6 +45,28 @@ def test_a_date_slot_must_be_a_date():
         TEMPLATES["CQ-02"].check_slots({"since": "last tuesday"})
 
 
+def test_a_name_slot_takes_a_name_and_nothing_else():
+    t = TEMPLATES["CQ-12"]
+    assert t.check_slots({"name": "  mara   de Vries "})["name"] == "mara de Vries"
+    assert t.check_slots({"name": "O'Neill-Smith"})["name"] == "O'Neill-Smith"
+    assert t.check_slots({"name": "Zoë"})["name"] == "Zoë"
+    for bad in ('Mara") } DROP ALL #', "Mara\\", "P-0101", "x", "Mara; drop", "a" * 61):
+        with pytest.raises(SlotError):
+            t.check_slots({"name": bad})
+
+
+def test_a_name_reaches_the_query_as_a_string_to_match():
+    t = TEMPLATES["CQ-12"]
+    query = t.bind(t.check_slots({"name": "de Vries"}), [], [])
+    assert 'CONTAINS(LCASE(STR(?personLabel)), LCASE("de Vries"))' in query
+
+
+def test_a_lookup_by_name_reaches_no_matter():
+    t = TEMPLATES["CQ-12"]
+    assert t.matter_var is None and not t.derived
+    assert t.candidates(t.check_slots({})) == ""
+
+
 def test_an_unknown_slot_is_refused_rather_than_ignored():
     with pytest.raises(SlotError):
         TEMPLATES["CQ-01"].check_slots({"clientt": iri.client("C-0042")})

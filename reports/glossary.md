@@ -64,7 +64,11 @@ point in time, or a validity period.
 | ssf:ledBy | Practice Support | g:spine/pms | current-state | CQ-01, CQ-02, CQ-06, CQ-07 | MatterShape |
 | ssf:matterType | Knowledge Management | g:spine/pms | current-state | CQ-01, CQ-02, CQ-05, CQ-06, CQ-07 | MatterShape |
 | ssf:inJurisdiction | Practice Support | g:spine/pms | current-state | CQ-02, CQ-07 | MatterShape |
-| ssf:office | HR and Practice Support | g:spine/pms | current-state | CQ-05 | — |
+| ssf:office | HR and Practice Support | g:spine/pms | current-state | CQ-05, CQ-12 | — |
+| ssf:grade | HR | g:spine/hr | current-state | CQ-12 | PersonShape |
+| ssf:practiceArea | HR | g:spine/hr | current-state | CQ-12 | — |
+| ssf:joinedOn | HR | g:spine/hr | point-in-time | CQ-12 | PersonShape |
+| ssf:leftOn | HR | g:spine/hr | point-in-time | CQ-12 | — |
 | ssf:openedOn | Practice Support | g:spine/pms | point-in-time | CQ-01, CQ-02, CQ-05, CQ-06, CQ-07, CQ-09-practice, CQ-09-risk | MatterShape |
 | ssf:closedOn | Practice Support | g:spine/pms | point-in-time | CQ-01, CQ-02, CQ-06, CQ-09-practice | MatterShape |
 | ssf:assignmentPerson | Practice Support | g:spine/pms | valid-time | CQ-03 | AssignmentShape |

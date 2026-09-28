@@ -7,7 +7,7 @@ import yaml
 from tkg.semantic.templates import TEMPLATES
 
 RELATIONS = yaml.safe_load(open("/app/config/relations.yaml"))["relations"]
-STRUCTURAL = {"matterRef", "factSubject", "factPredicate", "factObject", "reviewState",
+STRUCTURAL = {"matterRef", "personRef", "factSubject", "factPredicate", "factObject", "reviewState",
               "confidence", "assertedBy", "accountType", "accountSince", "assignmentMatter",
               "assignmentRole", "validFrom", "validTo", "docType", "documentDate", "reviews"}
 

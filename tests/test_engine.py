@@ -199,6 +199,16 @@ def test_a_rejected_slot_value_is_not_recorded(make):
     assert "Rhine" not in log.read_text()
 
 
+
+def test_a_name_asked_for_is_hashed_in_the_record(make):
+    resolver, _, log = make()
+    r = resolver.ask("sanne", "CQ-12", {"name": "Rhine Capital"})
+    assert r["outcome"] == "answered"
+    assert r["slots"] == {"name": "Rhine Capital"}  # the person asking sees their own words
+    assert "Rhine" not in log.read_text()
+    record = read(log)[-1]
+    assert record["slots"]["name"] == Hasher(b"s" * 32)("text", "rhine capital")
+
 ACTIVE = None
 
 
