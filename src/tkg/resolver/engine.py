@@ -235,7 +235,7 @@ class Resolver:
         # only through the lineage of a denied graph. Its identifier is hashed too.
         walled = set(denied_m) | {m for g in denied_g for m in lineage_map.get(g, [])}
         part.update(
-            slots=self._redact_slots(slots, sorted(walled), denied_g),
+            slots=self._redact_slots(template, slots, sorted(walled), denied_g),
             considered={
                 "matters": [self._id("matter", m, denied_m) for m in cand_matters],
                 "graphs": [self._id("graph", g, denied_g) for g in cand_graphs],
@@ -306,6 +306,10 @@ class Resolver:
             # What was minted, never the signature: the object key and its expiry.
             "links": [{"key": x["key"], "exp": x["expires"]} for x in sources],
         }
+        people = sorted({r["personRef"] for r in rows if r.get("personRef")})
+        if people:
+            # A lookup by name keeps no name; who it found is what the record needs.
+            returned["people"] = people
         if passages:
             returned["passages"] = [p["chunk_id"] for p in passages]
             returned["passage_matters"] = _passage_matters(passages)
@@ -479,11 +483,18 @@ class Resolver:
     def _id(self, kind: str, ident: str, denied: list[str]) -> str:
         return self.hasher(kind, ident) if ident in denied else ident
 
-    def _redact_slots(self, slots: dict, denied_m: list[str], denied_g: list[str]) -> dict:
+    def _redact_slots(self, template: Template, slots: dict, denied_m: list[str],
+                      denied_g: list[str]) -> dict:
+        text = {s.name for s in template.slots if s.kind == "text"}
         out = {}
         for name, value in slots.items():
             ref = iri.matter_ref(value)
-            if ref and ref in denied_m:
+            if name in text:
+                # Free text is not logged: a name typed in could be a client's. The
+                # salted hash still says whether two questions asked the same thing.
+                # docs/decisions/0013.
+                out[name] = self.hasher("text", value.lower())
+            elif ref and ref in denied_m:
                 out[name] = self.hasher("matter", ref)
             elif value in denied_g:
                 out[name] = self.hasher("graph", value)

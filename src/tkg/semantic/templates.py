@@ -42,6 +42,9 @@ from .. import iri
 
 IRI_RE = re.compile(r"^https://lab\.fps4\.dev/[A-Za-z0-9/_.\-]+$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# A name as a person types it: letters, spaces, and the hyphen, apostrophe and full
+# stop names carry. Nothing that could close a SPARQL string or start a new clause.
+TEXT_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[ '.\-]){1,59}$")
 GRAPH_VAR_RE = re.compile(r"GRAPH\s+\?(\w+)")
 
 # Short forms a person — or an assistant — will actually type.
@@ -71,7 +74,7 @@ def expand(value: str) -> str:
 @dataclass(frozen=True)
 class Slot:
     name: str
-    kind: str  # "iri" | "date"
+    kind: str  # "iri" | "date" | "text"
     default: str
     description: str
 
@@ -113,6 +116,11 @@ class Template:
             elif slot.kind == "date":
                 if not DATE_RE.match(value):
                     raise SlotError(f"{slot.name}: expected YYYY-MM-DD, got {value!r}")
+            elif slot.kind == "text":
+                value = " ".join(value.split())
+                if not TEXT_RE.match(value):
+                    # The value is not echoed: it is free text. docs/decisions/0013.
+                    raise SlotError(f"{slot.name}: expected a name — letters, spaces, - ' .")
             else:  # pragma: no cover - guarded by construction
                 raise SlotError(f"unknown slot kind {slot.kind}")
             bound[slot.name] = value
@@ -123,7 +131,12 @@ class Template:
     def _render_slots(self, where: str, slots: dict[str, str]) -> str:
         for slot in self.slots:
             value = slots[slot.name]
-            rendered = f"<{value}>" if slot.kind == "iri" else f'"{value}"^^xsd:date'
+            if slot.kind == "iri":
+                rendered = f"<{value}>"
+            elif slot.kind == "date":
+                rendered = f'"{value}"^^xsd:date'
+            else:
+                rendered = f'"{value}"'
             where = where.replace("{{" + slot.name + "}}", rendered)
         return where
 
@@ -559,6 +572,41 @@ CQ11 = Template(
     tail="ORDER BY ?confidence ?factId",
 )
 
+CQ12 = Template(
+    id="CQ-12",
+    question="Who is this person? Find people by name — their identifier, office, grade and "
+    "practice area.",
+    slots=(Slot("name", "text", "Mara de Vries", "a name or part of one, e.g. Mara or de Vries"),),
+    columns=("personRef", "personLabel", "office", "grade", "practiceLabel", "joined", "left", "g"),
+    graphs={"g": SPINE, "gp": VOCAB},
+    matter_var=None,
+    note=(
+        "Answered from the HR graph, and it reaches no matter. A name can match more than "
+        "one person: use the identifier of the one meant, and when it is not clear which, "
+        "ask rather than choose."
+    ),
+    select="?personRef ?personLabel ?office ?grade ?practiceLabel ?joined ?left ?g",
+    where="""
+  GRAPH ?g {
+    ?person a ssf:Person ;
+            ssf:personRef ?personRef ;
+            rdfs:label ?personLabel ;
+            ssf:grade ?grade ;
+            ssf:joinedOn ?joined .
+    OPTIONAL { ?person ssf:office ?office }
+    OPTIONAL { ?person ssf:practiceArea ?practice }
+    OPTIONAL { ?person ssf:leftOn ?left }
+  }
+  {{graph:g}}
+  OPTIONAL {
+    GRAPH ?gp { ?practice skos:prefLabel ?practiceLabel }
+    {{graph:gp}}
+  }
+  FILTER (CONTAINS(LCASE(STR(?personLabel)), LCASE({{name}})))
+""",
+    tail="ORDER BY ?personLabel ?personRef",
+)
+
 # ── "active client": one question, four readings, four owners ─────────────
 # Each reading is its own template, reached through the term. A question that
 # names the term without choosing a reading is refused at the router with the
@@ -643,7 +691,7 @@ CQ09_RISK = Template(
 TEMPLATES: dict[str, Template] = {
     t.id: t
     for t in (
-        CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08, CQ10, CQ11,
+        CQ01, CQ02, CQ03, CQ04, CQ05, CQ06, CQ07, CQ08, CQ10, CQ11, CQ12,
         CQ09_PRACTICE, CQ09_FINANCE, CQ09_BD, CQ09_RISK,
     )
 }

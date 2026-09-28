@@ -35,6 +35,10 @@ short identifiers: matters like M-2022-0117, clients like C-0042, people like
 P-0101, and vocabulary like gl:matter-type/regulatory-investigation or
 id:jurisdiction/NL. Defaults are used for slots you leave out.
 
+People are not glossary terms. When the user names a person, find their identifier
+with CQ-12 and use that. If the name matches more than one person, do not pick one:
+list them and ask which is meant.
+
 Business words are not yours to interpret. Before filling a slot from a word the
 user used — "AIFM", "AFM investigation", "active client" — call resolve_term() on it
 and use what it says the word means, then pass the term ids you relied on in

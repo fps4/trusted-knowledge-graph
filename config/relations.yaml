@@ -13,7 +13,11 @@ relations:
   - {predicate: ledBy,               owner: Practice Support,        source: g:spine/pms, time: current-state, templates: [CQ-01, CQ-02, CQ-06, CQ-07], shapes: [MatterShape]}
   - {predicate: matterType,          owner: Knowledge Management,    source: g:spine/pms, time: current-state, templates: [CQ-01, CQ-02, CQ-05, CQ-06, CQ-07], shapes: [MatterShape]}
   - {predicate: inJurisdiction,      owner: Practice Support,        source: g:spine/pms, time: current-state, templates: [CQ-02, CQ-07], shapes: [MatterShape]}
-  - {predicate: office,              owner: HR and Practice Support, source: g:spine/pms, time: current-state, templates: [CQ-05], shapes: []}
+  - {predicate: office,              owner: HR and Practice Support, source: g:spine/pms, time: current-state, templates: [CQ-05, CQ-12], shapes: []}
+  - {predicate: grade,               owner: HR,                      source: g:spine/hr,  time: current-state, templates: [CQ-12], shapes: [PersonShape]}
+  - {predicate: practiceArea,        owner: HR,                      source: g:spine/hr,  time: current-state, templates: [CQ-12], shapes: []}
+  - {predicate: joinedOn,            owner: HR,                      source: g:spine/hr,  time: point-in-time, templates: [CQ-12], shapes: [PersonShape]}
+  - {predicate: leftOn,              owner: HR,                      source: g:spine/hr,  time: point-in-time, templates: [CQ-12], shapes: []}
   - {predicate: openedOn,            owner: Practice Support,        source: g:spine/pms, time: point-in-time, templates: [CQ-01, CQ-02, CQ-05, CQ-06, CQ-07, CQ-09-practice, CQ-09-risk], shapes: [MatterShape]}
   - {predicate: closedOn,            owner: Practice Support,        source: g:spine/pms, time: point-in-time, templates: [CQ-01, CQ-02, CQ-06, CQ-09-practice], shapes: [MatterShape]}
   - {predicate: assignmentPerson,    owner: Practice Support,        source: g:spine/pms, time: valid-time,    templates: [CQ-03], shapes: [AssignmentShape]}
